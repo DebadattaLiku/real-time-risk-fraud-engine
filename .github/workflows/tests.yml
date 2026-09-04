@@ -1,0 +1,38 @@
+# Phase 13 audit: no CI configuration existed in this repository. Adding
+# a minimal, low-risk workflow that runs the REAL test suite (no ML
+# retraining, no Docker build — those require the raw dataset / longer
+# runtimes and are validated manually per-phase, documented in each
+# reports/phase*_summary.md) against the exact pinned dependency set in
+# requirements.txt, which is the concrete way this repository's
+# "reproducible from its documented environment" claim gets checked on
+# every push, not just asserted in prose.
+#
+# NOTE: several test modules build small synthetic LightGBM models
+# on-the-fly (Phases 6/7/9/10/11's API/engine test fixtures) and do not
+# require the real ~683MB raw dataset or the pretrained model bundle —
+# the full suite is expected to pass in a clean checkout using only
+# what's committed to this repository.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run test suite
+        run: pytest -q

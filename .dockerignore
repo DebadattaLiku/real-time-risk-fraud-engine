@@ -1,0 +1,56 @@
+# Phase 8: exclusions for the inference-service Docker build context.
+# Rationale is documented per-section — this is not a blind "exclude
+# everything" copy-paste.
+
+# --- Raw dataset: large (~1.3GB), not needed for inference. The
+# pretrained model bundle (data/interim/phase6_model_bundle.pkl, NOT
+# excluded below) already encodes everything training needed from it.
+# Excluding this also keeps the Dockerfile from ever being tempted to
+# "just retrain" using data baked into the image.
+data/raw/
+data/processed/
+
+# --- Prior-phase JSON metrics/metadata (small individually, but numerous
+# and irrelevant to serving predictions). Does NOT match the .pkl model
+# bundle, which is copied explicitly by the Dockerfile.
+data/interim/*.json
+
+# --- Generated figures from earlier phases' reports — large PNGs with no
+# runtime purpose.
+reports/figures/
+reports/*.csv
+
+# --- Exploration notebooks — not runtime code.
+notebooks/
+
+# --- Tests — not needed to SERVE the API; the Dockerfile does not copy
+# this directory, and this entry is a defensive backstop in case that
+# changes later.
+tests/
+
+# --- Python / tooling artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# --- Local environments / VCS / editor
+.git/
+.gitignore
+.venv/
+venv/
+.idea/
+.vscode/
+
+# --- Local secrets/config — never bake real environment values into the
+# image; .env.example is the documented template, not a real .env file.
+.env
+!.env.example
+
+# --- Misc local artifacts that may exist in a dev sandbox but should
+# never end up in a built image.
+swapfile
+*.log

@@ -1,0 +1,25 @@
+# Phase 8: local single-service composition for the fraud risk scoring
+# API. No database, cache, or message broker — deliberately out of scope
+# for this phase (see reports/phase8_containerization_summary.md).
+
+services:
+  fraud-risk-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fraud-risk-api:local
+    container_name: fraud-risk-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - WARM_START_STATE=${WARM_START_STATE:-false}
+      - APP_ENV=container
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: "no"

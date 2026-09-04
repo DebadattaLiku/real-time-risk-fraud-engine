@@ -1,0 +1,227 @@
+{
+  "logreg_standard": {
+    "model": "logreg_standard",
+    "val_ranking": {
+      "pr_auc": 0.36351475202360345,
+      "roc_auc": 0.8063038368317471
+    },
+    "test_ranking": {
+      "pr_auc": 0.16044997627114327,
+      "roc_auc": 0.7939920968422158
+    },
+    "val_threshold_0.5": {
+      "threshold": 0.5,
+      "precision": 0.863961813842482,
+      "recall": 0.11900065746219593,
+      "f1": 0.20918809592603294,
+      "false_positive_rate": 0.0006663627117455196,
+      "n_flagged": 419,
+      "true_positives": 362,
+      "false_positives": 57,
+      "false_negatives": 2680,
+      "true_negatives": 85482
+    },
+    "test_threshold_0.5": {
+      "threshold": 0.5,
+      "precision": 0.2525974025974026,
+      "recall": 0.12617580278949075,
+      "f1": 0.16828898983344148,
+      "false_positive_rate": 0.013462303211771035,
+      "n_flagged": 1540,
+      "true_positives": 389,
+      "false_positives": 1151,
+      "false_negatives": 2694,
+      "true_negatives": 84347
+    },
+    "selected_threshold": 0.11015543315229655,
+    "val_at_selected_threshold": {
+      "threshold": 0.11015543315229655,
+      "precision": 0.5329700272479564,
+      "recall": 0.3214990138067061,
+      "f1": 0.4010662292392864,
+      "false_positive_rate": 0.01001882182396334,
+      "n_flagged": 1835,
+      "true_positives": 978,
+      "false_positives": 857,
+      "false_negatives": 2064,
+      "true_negatives": 84682
+    },
+    "test_at_selected_threshold": {
+      "threshold": 0.11015543315229655,
+      "precision": 0.2821507760532151,
+      "recall": 0.33019785922802464,
+      "f1": 0.304289343894784,
+      "false_positive_rate": 0.030293106271491732,
+      "n_flagged": 3608,
+      "true_positives": 1018,
+      "false_positives": 2590,
+      "false_negatives": 2065,
+      "true_negatives": 82908
+    },
+    "val_budget_table": [
+      {
+        "budget": 0.01,
+        "recall_at_k": 0.2123602892833662,
+        "precision_at_k": 0.7291196388261851
+      },
+      {
+        "budget": 0.02,
+        "recall_at_k": 0.3165680473372781,
+        "precision_at_k": 0.5434537246049661
+      },
+      {
+        "budget": 0.05,
+        "recall_at_k": 0.43096646942800787,
+        "precision_at_k": 0.2959367945823928
+      }
+    ],
+    "test_budget_table": [
+      {
+        "budget": 0.01,
+        "recall_at_k": 0.0012974375608173856,
+        "precision_at_k": 0.004514672686230248
+      },
+      {
+        "budget": 0.02,
+        "recall_at_k": 0.16088225754135582,
+        "precision_at_k": 0.2799097065462754
+      },
+      {
+        "budget": 0.05,
+        "recall_at_k": 0.3733376581252027,
+        "precision_at_k": 0.2598194130925508
+      }
+    ],
+    "val_fixed_budget": {
+      "review_budget": 0.02,
+      "n_transactions_total": 88581,
+      "n_transactions_reviewed": 1772,
+      "fraud_cases_captured": 963,
+      "total_fraud_cases": 3042,
+      "fraud_recall": 0.3165680473372781,
+      "precision_among_reviewed": 0.5434537246049661
+    },
+    "test_fixed_budget": {
+      "review_budget": 0.02,
+      "n_transactions_total": 88581,
+      "n_transactions_reviewed": 1772,
+      "fraud_cases_captured": 496,
+      "total_fraud_cases": 3083,
+      "fraud_recall": 0.16088225754135582,
+      "precision_among_reviewed": 0.2799097065462754
+    }
+  },
+  "logreg_balanced": {
+    "model": "logreg_balanced",
+    "val_ranking": {
+      "pr_auc": 0.35192663051536655,
+      "roc_auc": 0.8406494593409335
+    },
+    "test_ranking": {
+      "pr_auc": 0.1480798898938271,
+      "roc_auc": 0.8005721067146566
+    },
+    "val_threshold_0.5": {
+      "threshold": 0.5,
+      "precision": 0.8289085545722714,
+      "recall": 0.09237343852728468,
+      "f1": 0.16622301094350783,
+      "false_positive_rate": 0.0006780532856357919,
+      "n_flagged": 339,
+      "true_positives": 281,
+      "false_positives": 58,
+      "false_negatives": 2761,
+      "true_negatives": 85481
+    },
+    "test_threshold_0.5": {
+      "threshold": 0.5,
+      "precision": 0.2072992700729927,
+      "recall": 0.09211806681803439,
+      "f1": 0.1275544576689872,
+      "false_positive_rate": 0.012702051509976841,
+      "n_flagged": 1370,
+      "true_positives": 284,
+      "false_positives": 1086,
+      "false_negatives": 2799,
+      "true_negatives": 84412
+    },
+    "selected_threshold": 0.06696066274394498,
+    "val_at_selected_threshold": {
+      "threshold": 0.06696066274394498,
+      "precision": 0.3807667316439246,
+      "recall": 0.38527284681130836,
+      "f1": 0.38300653594771245,
+      "false_positive_rate": 0.022282233834858955,
+      "n_flagged": 3078,
+      "true_positives": 1172,
+      "false_positives": 1906,
+      "false_negatives": 1870,
+      "true_negatives": 83633
+    },
+    "test_at_selected_threshold": {
+      "threshold": 0.06696066274394498,
+      "precision": 0.2126907331596576,
+      "recall": 0.37074278300356794,
+      "f1": 0.27030862007804185,
+      "false_positive_rate": 0.04948653769678823,
+      "n_flagged": 5374,
+      "true_positives": 1143,
+      "false_positives": 4231,
+      "false_negatives": 1940,
+      "true_negatives": 81267
+    },
+    "val_budget_table": [
+      {
+        "budget": 0.01,
+        "recall_at_k": 0.18573307034845496,
+        "precision_at_k": 0.6376975169300225
+      },
+      {
+        "budget": 0.02,
+        "recall_at_k": 0.289612097304405,
+        "precision_at_k": 0.4971783295711061
+      },
+      {
+        "budget": 0.05,
+        "recall_at_k": 0.45134779750164367,
+        "precision_at_k": 0.30993227990970657
+      }
+    ],
+    "test_budget_table": [
+      {
+        "budget": 0.01,
+        "recall_at_k": 0.0,
+        "precision_at_k": 0.0
+      },
+      {
+        "budget": 0.02,
+        "recall_at_k": 0.1349335063250081,
+        "precision_at_k": 0.23476297968397292
+      },
+      {
+        "budget": 0.05,
+        "recall_at_k": 0.32954914044761596,
+        "precision_at_k": 0.2293453724604966
+      }
+    ],
+    "val_fixed_budget": {
+      "review_budget": 0.02,
+      "n_transactions_total": 88581,
+      "n_transactions_reviewed": 1772,
+      "fraud_cases_captured": 881,
+      "total_fraud_cases": 3042,
+      "fraud_recall": 0.289612097304405,
+      "precision_among_reviewed": 0.4971783295711061
+    },
+    "test_fixed_budget": {
+      "review_budget": 0.02,
+      "n_transactions_total": 88581,
+      "n_transactions_reviewed": 1772,
+      "fraud_cases_captured": 416,
+      "total_fraud_cases": 3083,
+      "fraud_recall": 0.1349335063250081,
+      "precision_among_reviewed": 0.23476297968397292
+    }
+  },
+  "selected": "logreg_standard"
+}

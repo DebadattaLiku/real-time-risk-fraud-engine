@@ -1,0 +1,176 @@
+{
+  "registry_version": "v1",
+  "created_at": "2026-09-02T20:03:28.816345+00:00",
+  "last_updated_at": "2026-09-02T20:03:28.816448+00:00",
+  "champion_model_id": "fraud-risk-lightgbm-v1",
+  "models": {
+    "fraud-risk-lightgbm-v1": {
+      "model_id": "fraud-risk-lightgbm-v1",
+      "model_version": "v1",
+      "model_type": "LightGBM (transaction-level + card1 behavioral features, Phase 4)",
+      "status": "CHAMPION",
+      "created_at": "2026-09-02T20:03:28.816266+00:00",
+      "feature_schema_version": "phase1-v1",
+      "training_data_reference": "TRAIN partition, Phase 1 temporal split (0-413,377, 70%) \u2014 see data/interim/phase1_split_metadata.json for exact boundaries.",
+      "validation_data_reference": "VALIDATION partition, Phase 1 temporal split (413,378-501,958, 15%) \u2014 same source as the Phase 10 drift reference profile.",
+      "test_data_reference": "TEST partition, Phase 1 temporal split (501,959-590,539, 15%) \u2014 evaluated ONCE (Phase 4), final record only, never re-used for tuning.",
+      "evaluation_metrics": {
+        "validation": {
+          "ranking": {
+            "pr_auc": 0.6146879274607402,
+            "roc_auc": 0.9252752736238002
+          },
+          "budget_table": [
+            {
+              "budget": 0.01,
+              "recall_at_k": 0.2702169625246548,
+              "precision_at_k": 0.927765237020316
+            },
+            {
+              "budget": 0.02,
+              "recall_at_k": 0.45036160420775806,
+              "precision_at_k": 0.7731376975169301
+            },
+            {
+              "budget": 0.05,
+              "recall_at_k": 0.6492439184746877,
+              "precision_at_k": 0.445823927765237
+            }
+          ]
+        },
+        "test_final_evaluation_only": {
+          "ranking": {
+            "pr_auc": 0.5482543868701517,
+            "roc_auc": 0.9057988067195211
+          },
+          "budget_table": [
+            {
+              "budget": 0.01,
+              "recall_at_k": 0.2530003243593902,
+              "precision_at_k": 0.8803611738148984
+            },
+            {
+              "budget": 0.02,
+              "recall_at_k": 0.4090171910476808,
+              "precision_at_k": 0.7116252821670429
+            },
+            {
+              "budget": 0.05,
+              "recall_at_k": 0.6013623094388583,
+              "precision_at_k": 0.418510158013544
+            }
+          ],
+          "note": "This is the ONE-TIME, final Phase 4 test-set evaluation \u2014 reported here for the historical record, never used again as a tuning or promotion-gate signal (see src/governance/evaluation.py)."
+        },
+        "decision_policy_validation_eval": {
+          "policy_name": "balanced",
+          "approve_threshold": 0.32061562877852007,
+          "block_threshold": 0.631136794838037,
+          "n_transactions_total": 88581,
+          "total_fraud_cases": 3042,
+          "total_legitimate_cases": 85539,
+          "buckets": {
+            "APPROVE": {
+              "count": 86809,
+              "pct_of_total": 0.9799957101410008,
+              "fraud_count": 1672,
+              "legitimate_count": 85137,
+              "fraud_rate": 0.01926067573638678
+            },
+            "REVIEW": {
+              "count": 620,
+              "pct_of_total": 0.006999243630123842,
+              "fraud_count": 331,
+              "legitimate_count": 289,
+              "fraud_rate": 0.5338709677419354
+            },
+            "BLOCK": {
+              "count": 1152,
+              "pct_of_total": 0.013005046228875267,
+              "fraud_count": 1039,
+              "legitimate_count": 113,
+              "fraud_rate": 0.9019097222222222
+            }
+          },
+          "fraud_captured_review_plus_block": 1370,
+          "fraud_captured_block_alone": 1039,
+          "fraud_missed_in_approve": 1672,
+          "fraud_recall_review_plus_block": 0.45036160420775806,
+          "precision_among_reviewed": 0.5338709677419354,
+          "precision_among_blocked": 0.9019097222222222,
+          "pct_legitimate_sent_to_review": 0.003378575854288687,
+          "pct_legitimate_blocked": 0.001321034849600767,
+          "pct_legitimate_intervened": 0.004699610703889454,
+          "legitimate_transactions_reviewed": 289,
+          "legitimate_transactions_blocked": 113
+        },
+        "decision_policy_test_eval": {
+          "policy_name": "balanced",
+          "approve_threshold": 0.32061562877852007,
+          "block_threshold": 0.631136794838037,
+          "n_transactions_total": 88581,
+          "total_fraud_cases": 3083,
+          "total_legitimate_cases": 85498,
+          "buckets": {
+            "APPROVE": {
+              "count": 86730,
+              "pct_of_total": 0.9791038710332916,
+              "fraud_count": 1792,
+              "legitimate_count": 84938,
+              "fraud_rate": 0.02066182405165456
+            },
+            "REVIEW": {
+              "count": 722,
+              "pct_of_total": 0.008150732098305505,
+              "fraud_count": 333,
+              "legitimate_count": 389,
+              "fraud_rate": 0.46121883656509693
+            },
+            "BLOCK": {
+              "count": 1129,
+              "pct_of_total": 0.01274539686840293,
+              "fraud_count": 958,
+              "legitimate_count": 171,
+              "fraud_rate": 0.8485385296722764
+            }
+          },
+          "fraud_captured_review_plus_block": 1291,
+          "fraud_captured_block_alone": 958,
+          "fraud_missed_in_approve": 1792,
+          "fraud_recall_review_plus_block": 0.4187479727538112,
+          "precision_among_reviewed": 0.46121883656509693,
+          "precision_among_blocked": 0.8485385296722764,
+          "pct_legitimate_sent_to_review": 0.004549814030737561,
+          "pct_legitimate_blocked": 0.0020000467847201106,
+          "pct_legitimate_intervened": 0.006549860815457671,
+          "legitimate_transactions_reviewed": 389,
+          "legitimate_transactions_blocked": 171
+        }
+      },
+      "artifact_reference": "data/interim/phase6_model_bundle.pkl",
+      "artifact_sha256": "bb5de8767ebaffae90a8ca634380524e2002f67d38fb87528ea5911479686342",
+      "decision_policy_version": "balanced",
+      "hyperparameters": {
+        "objective": "binary",
+        "metric": "None",
+        "learning_rate": 0.05,
+        "num_leaves": 31,
+        "max_depth": -1,
+        "feature_fraction": 0.8,
+        "bagging_fraction": 0.8,
+        "bagging_freq": 1,
+        "min_child_samples": 50,
+        "reg_alpha": 0.1,
+        "reg_lambda": 0.1,
+        "n_estimators": 1000,
+        "n_jobs": 1,
+        "random_state": 42,
+        "verbose": -1
+      },
+      "notes": "Initial champion, registered in Phase 11 from the model approved in Phases 4-5. Not retrained or re-evaluated for this registration \u2014 all metrics are the real, already-saved values from those phases.",
+      "promoted_from": null,
+      "promoted_at": null,
+      "retired_at": null
+    }
+  }
+}

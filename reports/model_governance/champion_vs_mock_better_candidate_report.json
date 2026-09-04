@@ -1,0 +1,119 @@
+{
+  "report_generated_at": "2026-09-02T20:07:19.910430+00:00",
+  "champion": {
+    "model_id": "fraud-risk-lightgbm-v1",
+    "model_version": "v1",
+    "status": "CHAMPION"
+  },
+  "candidate": {
+    "model_id": "mock-candidate-better-v1",
+    "model_version": "v1",
+    "status": "CANDIDATE"
+  },
+  "evaluation_context": {
+    "dataset_label": "validation",
+    "feature_schema_version_champion": "phase1-v1",
+    "feature_schema_version_candidate": "phase1-v1"
+  },
+  "metrics_comparison": {
+    "dataset_label": "validation",
+    "ranking_metrics": {
+      "champion": {
+        "pr_auc": 0.6146879274607402,
+        "roc_auc": 0.9252752736238002
+      },
+      "candidate": {
+        "pr_auc": 0.8700143560447657,
+        "roc_auc": 0.9957405613084939
+      },
+      "delta_pr_auc": 0.25532642858402554,
+      "delta_roc_auc": 0.07046528768469362
+    },
+    "policy_metrics": {
+      "champion": {
+        "decision_distribution": {
+          "APPROVE": 0.9799957101410008,
+          "REVIEW": 0.006999243630123842,
+          "BLOCK": 0.013005046228875267
+        },
+        "fraud_recall_review_plus_block": 0.45036160420775806,
+        "precision_among_blocked": 0.9019097222222222,
+        "pct_legitimate_blocked": 0.001321034849600767
+      },
+      "candidate": {
+        "decision_distribution": {
+          "APPROVE": 0.9782346101308407,
+          "REVIEW": 0.008421670561407074,
+          "BLOCK": 0.013343719307752227
+        },
+        "fraud_recall_review_plus_block": 0.5276134122287969,
+        "precision_among_blocked": 0.9314720812182741,
+        "pct_legitimate_blocked": 0.0009469364851120542
+      },
+      "delta_fraud_recall": 0.07725180802103881,
+      "delta_pct_legitimate_blocked": -0.00037409836448871277
+    }
+  },
+  "compatibility_checks": [
+    {
+      "check": "feature_schema_compatibility",
+      "champion_feature_schema_version": "phase1-v1",
+      "candidate_feature_schema_version": "phase1-v1",
+      "compatible": true,
+      "explanation": "Feature schema versions match (phase1-v1)."
+    },
+    {
+      "check": "decision_policy_compatibility",
+      "champion_decision_policy_version": "balanced",
+      "candidate_decision_policy_version": "balanced",
+      "compatible": true,
+      "explanation": "Both models are evaluated against the same frozen decision policy ('balanced')."
+    }
+  ],
+  "promotion_gates": [
+    {
+      "gate": "required_metric_availability",
+      "result": "PASS",
+      "explanation": "Both champion and candidate have valid PR-AUC/ROC-AUC on the evaluation dataset."
+    },
+    {
+      "gate": "feature_schema_compatibility",
+      "result": "PASS",
+      "explanation": "Feature schema versions match (phase1-v1)."
+    },
+    {
+      "gate": "candidate_quality_threshold",
+      "result": "PASS",
+      "explanation": "Candidate PR-AUC (0.8700) meets the project minimum (0.3)."
+    },
+    {
+      "gate": "no_unacceptable_degradation",
+      "result": "PASS",
+      "explanation": "Candidate PR-AUC (0.8700) is at or above the champion's (0.6147), or within the negligible 0.005 review-free tolerance.",
+      "delta_pr_auc": 0.25532642858402554
+    },
+    {
+      "gate": "operational_compatibility",
+      "result": "PASS",
+      "explanation": "Legitimate-customer blocked rate changes by -0.0374% under the candidate \u2014 within the 0.50% tolerance.",
+      "delta_pct_legitimate_blocked": -0.00037409836448871277
+    },
+    {
+      "gate": "decision_policy_compatibility",
+      "result": "PASS",
+      "explanation": "Both models are evaluated against the same frozen decision policy ('balanced')."
+    }
+  ],
+  "recommendation": "PROMOTE",
+  "recommendation_explanation": "All promotion gates passed.",
+  "failed_gates": [],
+  "review_gates": [],
+  "passed_gates": [
+    "required_metric_availability",
+    "feature_schema_compatibility",
+    "candidate_quality_threshold",
+    "no_unacceptable_degradation",
+    "operational_compatibility",
+    "decision_policy_compatibility"
+  ]
+}

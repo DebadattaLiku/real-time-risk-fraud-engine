@@ -1,0 +1,255 @@
+{
+  "lightgbm_reproducibility_check": {
+    "original_val_pr_auc": 0.6091773276847543,
+    "reproduced_val_pr_auc": 0.6091773276847543,
+    "val_match": true,
+    "original_test_pr_auc": 0.5427906495270152,
+    "reproduced_test_pr_auc": 0.5427906495270152,
+    "test_match": true
+  },
+  "isolation_forest_configs_tested": {
+    "default": {
+      "params": {
+        "n_estimators": 100,
+        "max_samples": "auto",
+        "max_features": 1.0
+      },
+      "val_pr_auc": 0.048867998468946613,
+      "val_roc_auc": 0.5831787233799541,
+      "val_recall_at_2pct": 0.056870479947403026
+    },
+    "more_trees_larger_subsample": {
+      "params": {
+        "n_estimators": 200,
+        "max_samples": 1024,
+        "max_features": 1.0
+      },
+      "val_pr_auc": 0.03921193452339709,
+      "val_roc_auc": 0.5441314245247134,
+      "val_recall_at_2pct": 0.020710059171597635
+    },
+    "more_trees_half_features": {
+      "params": {
+        "n_estimators": 200,
+        "max_samples": "auto",
+        "max_features": 0.5
+      },
+      "val_pr_auc": 0.05287796426679314,
+      "val_roc_auc": 0.5838935931343173,
+      "val_recall_at_2pct": 0.0782380013149244
+    }
+  },
+  "selected_config": "more_trees_half_features",
+  "anomaly_evaluation": {
+    "val_ranking": {
+      "pr_auc": 0.05287796426679314,
+      "roc_auc": 0.5838935931343173
+    },
+    "test_ranking": {
+      "pr_auc": 0.044899380118040025,
+      "roc_auc": 0.5448406901749288
+    },
+    "val_budget_table": [
+      {
+        "budget": 0.01,
+        "recall_at_k": 0.030900723208415515,
+        "precision_at_k": 0.10609480812641084
+      },
+      {
+        "budget": 0.02,
+        "recall_at_k": 0.0782380013149244,
+        "precision_at_k": 0.1343115124153499
+      },
+      {
+        "budget": 0.05,
+        "recall_at_k": 0.11078238001314925,
+        "precision_at_k": 0.07607223476297968
+      }
+    ],
+    "test_budget_table": [
+      {
+        "budget": 0.01,
+        "recall_at_k": 0.02367823548491729,
+        "precision_at_k": 0.08239277652370203
+      },
+      {
+        "budget": 0.02,
+        "recall_at_k": 0.038274408044112876,
+        "precision_at_k": 0.06659142212189616
+      },
+      {
+        "budget": 0.05,
+        "recall_at_k": 0.08433344145313007,
+        "precision_at_k": 0.05869074492099323
+      }
+    ],
+    "val_fixed_budgets": {
+      "1pct": {
+        "review_budget": 0.01,
+        "n_transactions_total": 88581,
+        "n_transactions_reviewed": 886,
+        "fraud_cases_captured": 94,
+        "total_fraud_cases": 3042,
+        "fraud_recall": 0.030900723208415515,
+        "precision_among_reviewed": 0.10609480812641084
+      },
+      "2pct": {
+        "review_budget": 0.02,
+        "n_transactions_total": 88581,
+        "n_transactions_reviewed": 1772,
+        "fraud_cases_captured": 238,
+        "total_fraud_cases": 3042,
+        "fraud_recall": 0.0782380013149244,
+        "precision_among_reviewed": 0.1343115124153499
+      },
+      "5pct": {
+        "review_budget": 0.05,
+        "n_transactions_total": 88581,
+        "n_transactions_reviewed": 4430,
+        "fraud_cases_captured": 337,
+        "total_fraud_cases": 3042,
+        "fraud_recall": 0.11078238001314925,
+        "precision_among_reviewed": 0.07607223476297968
+      }
+    },
+    "test_fixed_budgets": {
+      "1pct": {
+        "review_budget": 0.01,
+        "n_transactions_total": 88581,
+        "n_transactions_reviewed": 886,
+        "fraud_cases_captured": 73,
+        "total_fraud_cases": 3083,
+        "fraud_recall": 0.02367823548491729,
+        "precision_among_reviewed": 0.08239277652370203
+      },
+      "2pct": {
+        "review_budget": 0.02,
+        "n_transactions_total": 88581,
+        "n_transactions_reviewed": 1772,
+        "fraud_cases_captured": 118,
+        "total_fraud_cases": 3083,
+        "fraud_recall": 0.038274408044112876,
+        "precision_among_reviewed": 0.06659142212189616
+      },
+      "5pct": {
+        "review_budget": 0.05,
+        "n_transactions_total": 88581,
+        "n_transactions_reviewed": 4430,
+        "fraud_cases_captured": 260,
+        "total_fraud_cases": 3083,
+        "fraud_recall": 0.08433344145313007,
+        "precision_among_reviewed": 0.05869074492099323
+      }
+    }
+  },
+  "lightgbm_reference": {
+    "val_pr_auc": 0.6091773276847543,
+    "test_pr_auc": 0.5427906495270152
+  },
+  "score_correlation_val": {
+    "pearson_r": 0.10220957926160518,
+    "pearson_p_value": 2.633184365235488e-204,
+    "spearman_r": -0.25499780666313315,
+    "spearman_p_value": 0.0
+  },
+  "score_correlation_test": {
+    "pearson_r": 0.06302724370602722,
+    "pearson_p_value": 1.1664054745434242e-78,
+    "spearman_r": -0.23221303019952882,
+    "spearman_p_value": 0.0
+  },
+  "overlap_analysis_test": {
+    "1pct": {
+      "k_fraction": 0.01,
+      "n_reviewed_each": 886,
+      "row_overlap_count": 60,
+      "row_overlap_fraction_of_topk": 0.06772009029345373,
+      "fraud_captured_by_lightgbm": 780,
+      "fraud_captured_by_isolation_forest": 73,
+      "fraud_captured_by_both": 55,
+      "fraud_captured_only_by_lightgbm": 725,
+      "fraud_captured_only_by_isolation_forest": 18,
+      "total_fraud_cases": 3083
+    },
+    "2pct": {
+      "k_fraction": 0.02,
+      "n_reviewed_each": 1772,
+      "row_overlap_count": 109,
+      "row_overlap_fraction_of_topk": 0.061512415349887134,
+      "fraud_captured_by_lightgbm": 1259,
+      "fraud_captured_by_isolation_forest": 118,
+      "fraud_captured_by_both": 94,
+      "fraud_captured_only_by_lightgbm": 1165,
+      "fraud_captured_only_by_isolation_forest": 24,
+      "total_fraud_cases": 3083
+    },
+    "5pct": {
+      "k_fraction": 0.05,
+      "n_reviewed_each": 4430,
+      "row_overlap_count": 292,
+      "row_overlap_fraction_of_topk": 0.06591422121896162,
+      "fraud_captured_by_lightgbm": 1786,
+      "fraud_captured_by_isolation_forest": 260,
+      "fraud_captured_by_both": 217,
+      "fraud_captured_only_by_lightgbm": 1569,
+      "fraud_captured_only_by_isolation_forest": 43,
+      "total_fraud_cases": 3083
+    }
+  },
+  "union_diagnostic_test": {
+    "1pct": {
+      "k_fraction_each_model": 0.01,
+      "n_reviewed_union": 1712,
+      "effective_combined_budget_fraction": 0.01932694370124519,
+      "fraud_captured_by_union": 798,
+      "fraud_recall_union": 0.2588387933830684,
+      "fraud_captured_by_model_a_alone_at_same_k": 780,
+      "incremental_fraud_from_union_vs_model_a_alone": 18,
+      "note": "DIAGNOSTIC ONLY. The union exceeds the fixed review budget (up to 2x the per-model k_fraction of transactions) and is NOT a valid operational policy on its own."
+    },
+    "2pct": {
+      "k_fraction_each_model": 0.02,
+      "n_reviewed_union": 3435,
+      "effective_combined_budget_fraction": 0.03877806753141193,
+      "fraud_captured_by_union": 1283,
+      "fraud_recall_union": 0.41615309763217645,
+      "fraud_captured_by_model_a_alone_at_same_k": 1259,
+      "incremental_fraud_from_union_vs_model_a_alone": 24,
+      "note": "DIAGNOSTIC ONLY. The union exceeds the fixed review budget (up to 2x the per-model k_fraction of transactions) and is NOT a valid operational policy on its own."
+    },
+    "5pct": {
+      "k_fraction_each_model": 0.05,
+      "n_reviewed_union": 8568,
+      "effective_combined_budget_fraction": 0.09672503132725979,
+      "fraud_captured_by_union": 1829,
+      "fraud_recall_union": 0.5932533246837496,
+      "fraud_captured_by_model_a_alone_at_same_k": 1786,
+      "incremental_fraud_from_union_vs_model_a_alone": 43,
+      "note": "DIAGNOSTIC ONLY. The union exceeds the fixed review budget (up to 2x the per-model k_fraction of transactions) and is NOT a valid operational policy on its own."
+    }
+  },
+  "conditional_analysis": {
+    "thresholds": {
+      "lgbm_low_threshold": 0.005203666984415156,
+      "anomaly_high_threshold": -0.014751269772619147
+    },
+    "validation": {
+      "lgbm_low_threshold": 0.005203666984415156,
+      "anomaly_high_threshold": -0.014751269772619147,
+      "n_transactions_matching_condition": 6408,
+      "fraud_cases_in_condition": 11,
+      "fraud_rate_in_condition": 0.0017166042446941324,
+      "overall_fraud_rate": 0.03434145019812375,
+      "lift_over_overall_rate": 0.049986364431048966
+    },
+    "test": {
+      "lgbm_low_threshold": 0.005203666984415156,
+      "anomaly_high_threshold": -0.014751269772619147,
+      "n_transactions_matching_condition": 6524,
+      "fraud_cases_in_condition": 33,
+      "fraud_rate_in_condition": 0.0050582464745554875,
+      "overall_fraud_rate": 0.03480430340592226,
+      "lift_over_overall_rate": 0.14533393803522532
+    }
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "registry_version": "v1",
+  "created_at": "2026-09-02T20:06:48.571202+00:00",
+  "last_updated_at": "2026-09-02T20:07:19.911266+00:00",
+  "champion_model_id": "fraud-risk-lightgbm-v1",
+  "models": {
+    "fraud-risk-lightgbm-v1": {
+      "model_id": "fraud-risk-lightgbm-v1",
+      "model_version": "v1",
+      "model_type": "LightGBM (real, Phase 4/5)",
+      "status": "CHAMPION",
+      "created_at": "2026-09-02T20:07:19.779628+00:00",
+      "feature_schema_version": "phase1-v1",
+      "training_data_reference": "TRAIN partition (real)",
+      "validation_data_reference": "VALIDATION partition (real)",
+      "test_data_reference": "UNAVAILABLE",
+      "evaluation_metrics": {
+        "val_pr_auc": 0.029284329040205212
+      },
+      "artifact_reference": "data/interim/phase6_model_bundle.pkl",
+      "artifact_sha256": "bb5de8767ebaffae90a8ca634380524e2002f67d38fb87528ea5911479686342",
+      "decision_policy_version": "balanced",
+      "hyperparameters": {},
+      "notes": "REAL champion model \u2014 the actual approved Phase 4/5 LightGBM model.",
+      "promoted_from": null,
+      "promoted_at": "2026-09-02T20:07:19.911258+00:00",
+      "retired_at": "2026-09-02T20:07:19.911242+00:00",
+      "retirement_history": [
+        {
+          "retired_at": "2026-09-02T20:07:19.911242+00:00",
+          "reason": "Superseded by promotion of 'mock-candidate-better-v1'",
+          "approved_by": "demo-script (simulated human reviewer)"
+        }
+      ],
+      "rollback_history": [
+        {
+          "rolled_back_at": "2026-09-02T20:07:19.911258+00:00",
+          "approved_by": "demo-script (simulated human reviewer)",
+          "reason": "Demonstration: rolling back to the real champion after the mock promotion.",
+          "previous_champion": "mock-candidate-better-v1"
+        }
+      ]
+    },
+    "mock-candidate-worse-v1": {
+      "model_id": "mock-candidate-worse-v1",
+      "model_version": "v1",
+      "model_type": "MOCK (synthetic, demonstration only)",
+      "status": "CANDIDATE",
+      "created_at": "2026-09-02T20:07:19.783168+00:00",
+      "feature_schema_version": "phase1-v1",
+      "training_data_reference": "N/A \u2014 synthetic demo artifact, not trained",
+      "validation_data_reference": "VALIDATION partition (real labels, synthetic scores)",
+      "test_data_reference": "UNAVAILABLE",
+      "evaluation_metrics": {},
+      "artifact_reference": "N/A (no real artifact \u2014 synthetic scores only)",
+      "artifact_sha256": "UNAVAILABLE",
+      "decision_policy_version": "balanced",
+      "hyperparameters": {},
+      "notes": "MOCK candidate for demonstration only: champion scores + Gaussian noise. NOT a real fraud model.",
+      "promoted_from": null,
+      "promoted_at": null,
+      "retired_at": null
+    },
+    "mock-candidate-better-v1": {
+      "model_id": "mock-candidate-better-v1",
+      "model_version": "v1",
+      "model_type": "MOCK (synthetic, demonstration only)",
+      "status": "RETIRED",
+      "created_at": "2026-09-02T20:07:19.783187+00:00",
+      "feature_schema_version": "phase1-v1",
+      "training_data_reference": "N/A \u2014 synthetic demo artifact, not trained",
+      "validation_data_reference": "VALIDATION partition (real labels, synthetic scores)",
+      "test_data_reference": "UNAVAILABLE",
+      "evaluation_metrics": {},
+      "artifact_reference": "N/A (no real artifact \u2014 synthetic scores only)",
+      "artifact_sha256": "UNAVAILABLE",
+      "decision_policy_version": "balanced",
+      "hyperparameters": {},
+      "notes": "MOCK candidate for demonstration only: a synthetic label-informed blend. NOT a real fraud model.",
+      "promoted_from": "fraud-risk-lightgbm-v1",
+      "promoted_at": "2026-09-02T20:07:19.911242+00:00",
+      "retired_at": "2026-09-02T20:07:19.911258+00:00",
+      "promotion_history": [
+        {
+          "promoted_at": "2026-09-02T20:07:19.911242+00:00",
+          "approved_by": "demo-script (simulated human reviewer)",
+          "reason": "Demonstration: mock candidate passed all promotion gates.",
+          "previous_champion": "fraud-risk-lightgbm-v1"
+        }
+      ],
+      "retirement_history": [
+        {
+          "retired_at": "2026-09-02T20:07:19.911258+00:00",
+          "reason": "Rolled back in favor of 'fraud-risk-lightgbm-v1'",
+          "approved_by": "demo-script (simulated human reviewer)"
+        }
+      ]
+    }
+  }
+}

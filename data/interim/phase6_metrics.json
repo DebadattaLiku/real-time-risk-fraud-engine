@@ -1,0 +1,175 @@
+{
+  "simulation_size": 3000,
+  "feature_parity": {
+    "n_transactions_compared": 3000,
+    "n_features_compared": 36000,
+    "n_transactions_fully_matching": 2997,
+    "n_mismatches": 5,
+    "max_abs_diff": 0.11320039930478028,
+    "tolerance": 0.0001,
+    "mismatches": [
+      {
+        "transaction_id": 3489055,
+        "feature": "bhv_hist_std_amt",
+        "offline_value": 2.6502301577906007,
+        "online_value": 2.6499989827473196
+      },
+      {
+        "transaction_id": 3490888,
+        "feature": "bhv_hist_std_amt",
+        "offline_value": 2.1229557750775174,
+        "online_value": 2.1213203435596424
+      },
+      {
+        "transaction_id": 3490888,
+        "feature": "bhv_amt_zscore",
+        "offline_value": 10.127393081756251,
+        "online_value": 10.135197197007182
+      },
+      {
+        "transaction_id": 3491193,
+        "feature": "bhv_hist_std_amt",
+        "offline_value": 0.11320039930478028,
+        "online_value": 0.0
+      },
+      {
+        "transaction_id": 3491193,
+        "feature": "bhv_amt_zscore",
+        "offline_value": 901.0571618475803,
+        "online_value": NaN
+      }
+    ]
+  },
+  "score_parity": {
+    "n_compared": 3000,
+    "n_mismatches": 1,
+    "max_abs_diff": 0.00045537048597166056,
+    "mean_abs_diff": 1.517901619905535e-07,
+    "correlation": 0.999999995835289,
+    "tolerance": 1e-06,
+    "mismatches": [
+      {
+        "transaction_id": 3491193,
+        "offline_score": 0.003970543311782052,
+        "online_score": 0.004425913797753713,
+        "abs_diff": 0.00045537048597166056
+      }
+    ]
+  },
+  "decision_parity": {
+    "n_compared": 3000,
+    "n_matching": 3000,
+    "pct_matching": 1.0,
+    "n_mismatches": 0,
+    "mismatches": []
+  },
+  "simulation_ranking": {
+    "pr_auc": 0.5056565800052963,
+    "roc_auc": 0.8929742132867132
+  },
+  "simulation_budget_table": [
+    {
+      "budget": 0.01,
+      "recall_at_k": 0.2727272727272727,
+      "precision_at_k": 0.8
+    },
+    {
+      "budget": 0.02,
+      "recall_at_k": 0.4318181818181818,
+      "precision_at_k": 0.6333333333333333
+    },
+    {
+      "budget": 0.05,
+      "recall_at_k": 0.5795454545454546,
+      "precision_at_k": 0.34
+    }
+  ],
+  "simulation_policy_eval": {
+    "policy_name": "balanced",
+    "approve_threshold": 0.32061562877852007,
+    "block_threshold": 0.631136794838037,
+    "n_transactions_total": 3000,
+    "total_fraud_cases": 88,
+    "total_legitimate_cases": 2912,
+    "buckets": {
+      "APPROVE": {
+        "count": 2951,
+        "pct_of_total": 0.9836666666666667,
+        "fraud_count": 56,
+        "legitimate_count": 2895,
+        "fraud_rate": 0.018976618095560827
+      },
+      "REVIEW": {
+        "count": 25,
+        "pct_of_total": 0.008333333333333333,
+        "fraud_count": 11,
+        "legitimate_count": 14,
+        "fraud_rate": 0.44
+      },
+      "BLOCK": {
+        "count": 24,
+        "pct_of_total": 0.008,
+        "fraud_count": 21,
+        "legitimate_count": 3,
+        "fraud_rate": 0.875
+      }
+    },
+    "fraud_captured_review_plus_block": 32,
+    "fraud_captured_block_alone": 21,
+    "fraud_missed_in_approve": 56,
+    "fraud_recall_review_plus_block": 0.36363636363636365,
+    "precision_among_reviewed": 0.44,
+    "precision_among_blocked": 0.875,
+    "pct_legitimate_sent_to_review": 0.004807692307692308,
+    "pct_legitimate_blocked": 0.0010302197802197802,
+    "pct_legitimate_intervened": 0.005837912087912088,
+    "legitimate_transactions_reviewed": 14,
+    "legitimate_transactions_blocked": 3
+  },
+  "offline_subset_ranking": {
+    "pr_auc": 0.5056569809425115,
+    "roc_auc": 0.8929781156343657
+  },
+  "offline_subset_policy_eval": {
+    "policy_name": "balanced",
+    "approve_threshold": 0.32061562877852007,
+    "block_threshold": 0.631136794838037,
+    "n_transactions_total": 3000,
+    "total_fraud_cases": 88,
+    "total_legitimate_cases": 2912,
+    "buckets": {
+      "APPROVE": {
+        "count": 2951,
+        "pct_of_total": 0.9836666666666667,
+        "fraud_count": 56,
+        "legitimate_count": 2895,
+        "fraud_rate": 0.018976618095560827
+      },
+      "REVIEW": {
+        "count": 25,
+        "pct_of_total": 0.008333333333333333,
+        "fraud_count": 11,
+        "legitimate_count": 14,
+        "fraud_rate": 0.44
+      },
+      "BLOCK": {
+        "count": 24,
+        "pct_of_total": 0.008,
+        "fraud_count": 21,
+        "legitimate_count": 3,
+        "fraud_rate": 0.875
+      }
+    },
+    "fraud_captured_review_plus_block": 32,
+    "fraud_captured_block_alone": 21,
+    "fraud_missed_in_approve": 56,
+    "fraud_recall_review_plus_block": 0.36363636363636365,
+    "precision_among_reviewed": 0.44,
+    "precision_among_blocked": 0.875,
+    "pct_legitimate_sent_to_review": 0.004807692307692308,
+    "pct_legitimate_blocked": 0.0010302197802197802,
+    "pct_legitimate_intervened": 0.005837912087912088,
+    "legitimate_transactions_reviewed": 14,
+    "legitimate_transactions_blocked": 3
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "reproducibility_check": {
+    "checked": true,
+    "val_match": true,
+    "test_match": true,
+    "original_val_pr_auc": 0.6146879274607402,
+    "reproduced_val_pr_auc": 0.6146879274607402,
+    "original_test_pr_auc": 0.5482543868701517,
+    "reproduced_test_pr_auc": 0.5482543868701517
+  },
+  "candidate_policies": {
+    "conservative": {
+      "diagnostics": {
+        "name": "conservative",
+        "review_capacity_target": 0.01,
+        "block_precision_target": 0.98,
+        "approve_threshold": 0.8077983060201368,
+        "block_threshold": 0.9677293717996754,
+        "block_fraction_selected": 0.005000000000000001,
+        "block_precision_achieved": 0.9841986455981941,
+        "block_precision_target_achieved": true
+      },
+      "val_eval": {
+        "policy_name": "conservative",
+        "approve_threshold": 0.8077983060201368,
+        "block_threshold": 0.9677293717996754,
+        "n_transactions_total": 88581,
+        "total_fraud_cases": 3042,
+        "total_legitimate_cases": 85539,
+        "buckets": {
+          "APPROVE": {
+            "count": 87695,
+            "pct_of_total": 0.9899978550705004,
+            "fraud_count": 2220,
+            "legitimate_count": 85475,
+            "fraud_rate": 0.025315012258395577
+          },
+          "REVIEW": {
+            "count": 443,
+            "pct_of_total": 0.005001072464749777,
+            "fraud_count": 386,
+            "legitimate_count": 57,
+            "fraud_rate": 0.871331828442438
+          },
+          "BLOCK": {
+            "count": 443,
+            "pct_of_total": 0.005001072464749777,
+            "fraud_count": 436,
+            "legitimate_count": 7,
+            "fraud_rate": 0.9841986455981941
+          }
+        },
+        "fraud_captured_review_plus_block": 822,
+        "fraud_captured_block_alone": 436,
+        "fraud_missed_in_approve": 2220,
+        "fraud_recall_review_plus_block": 0.2702169625246548,
+        "precision_among_reviewed": 0.871331828442438,
+        "precision_among_blocked": 0.9841986455981941,
+        "pct_legitimate_sent_to_review": 0.0006663627117455196,
+        "pct_legitimate_blocked": 8.183401723190591e-05,
+        "pct_legitimate_intervened": 0.0007481967289774255,
+        "legitimate_transactions_reviewed": 57,
+        "legitimate_transactions_blocked": 7
+      }
+    },
+    "balanced": {
+      "diagnostics": {
+        "name": "balanced",
+        "review_capacity_target": 0.02,
+        "block_precision_target": 0.9,
+        "approve_threshold": 0.32061562877852007,
+        "block_threshold": 0.631136794838037,
+        "block_fraction_selected": 0.013000000000000001,
+        "block_precision_achieved": 0.9019097222222222,
+        "block_precision_target_achieved": true
+      },
+      "val_eval": {
+        "policy_name": "balanced",
+        "approve_threshold": 0.32061562877852007,
+        "block_threshold": 0.631136794838037,
+        "n_transactions_total": 88581,
+        "total_fraud_cases": 3042,
+        "total_legitimate_cases": 85539,
+        "buckets": {
+          "APPROVE": {
+            "count": 86809,
+            "pct_of_total": 0.9799957101410008,
+            "fraud_count": 1672,
+            "legitimate_count": 85137,
+            "fraud_rate": 0.01926067573638678
+          },
+          "REVIEW": {
+            "count": 620,
+            "pct_of_total": 0.006999243630123842,
+            "fraud_count": 331,
+            "legitimate_count": 289,
+            "fraud_rate": 0.5338709677419354
+          },
+          "BLOCK": {
+            "count": 1152,
+            "pct_of_total": 0.013005046228875267,
+            "fraud_count": 1039,
+            "legitimate_count": 113,
+            "fraud_rate": 0.9019097222222222
+          }
+        },
+        "fraud_captured_review_plus_block": 1370,
+        "fraud_captured_block_alone": 1039,
+        "fraud_missed_in_approve": 1672,
+        "fraud_recall_review_plus_block": 0.45036160420775806,
+        "precision_among_reviewed": 0.5338709677419354,
+        "precision_among_blocked": 0.9019097222222222,
+        "pct_legitimate_sent_to_review": 0.003378575854288687,
+        "pct_legitimate_blocked": 0.001321034849600767,
+        "pct_legitimate_intervened": 0.004699610703889454,
+        "legitimate_transactions_reviewed": 289,
+        "legitimate_transactions_blocked": 113
+      }
+    },
+    "aggressive": {
+      "diagnostics": {
+        "name": "aggressive",
+        "review_capacity_target": 0.05,
+        "block_precision_target": 0.7,
+        "approve_threshold": 0.08868095916051201,
+        "block_threshold": 0.2305469464629633,
+        "block_fraction_selected": 0.0245,
+        "block_precision_achieved": 0.7029018885306311,
+        "block_precision_target_achieved": true
+      },
+      "val_eval": {
+        "policy_name": "aggressive",
+        "approve_threshold": 0.08868095916051201,
+        "block_threshold": 0.2305469464629633,
+        "n_transactions_total": 88581,
+        "total_fraud_cases": 3042,
+        "total_legitimate_cases": 85539,
+        "buckets": {
+          "APPROVE": {
+            "count": 84151,
+            "pct_of_total": 0.9499892753525022,
+            "fraud_count": 1067,
+            "legitimate_count": 83084,
+            "fraud_rate": 0.01267958788368528
+          },
+          "REVIEW": {
+            "count": 2259,
+            "pct_of_total": 0.025502082839435093,
+            "fraud_count": 449,
+            "legitimate_count": 1810,
+            "fraud_rate": 0.19876051350154936
+          },
+          "BLOCK": {
+            "count": 2171,
+            "pct_of_total": 0.024508641808062677,
+            "fraud_count": 1526,
+            "legitimate_count": 645,
+            "fraud_rate": 0.7029018885306311
+          }
+        },
+        "fraud_captured_review_plus_block": 1975,
+        "fraud_captured_block_alone": 1526,
+        "fraud_missed_in_approve": 1067,
+        "fraud_recall_review_plus_block": 0.6492439184746877,
+        "precision_among_reviewed": 0.19876051350154936,
+        "precision_among_blocked": 0.7029018885306311,
+        "pct_legitimate_sent_to_review": 0.021159938741392815,
+        "pct_legitimate_blocked": 0.007540420159225616,
+        "pct_legitimate_intervened": 0.028700358900618433,
+        "legitimate_transactions_reviewed": 1810,
+        "legitimate_transactions_blocked": 645
+      }
+    }
+  },
+  "selected_policy_name": "balanced",
+  "policy_config": {
+    "policy_name": "balanced",
+    "approve_threshold": 0.32061562877852007,
+    "block_threshold": 0.631136794838037,
+    "selection_criteria": "Selected on VALIDATION data only: balances fraud recall, BLOCK-bucket precision, and legitimate-customer friction across three candidate operating policies (conservative/balanced/aggressive).",
+    "review_capacity_assumption": 0.02,
+    "block_precision_target": 0.9,
+    "candidate_policies_considered": {
+      "conservative": {
+        "approve_threshold": 0.8077983060201368,
+        "block_threshold": 0.9677293717996754,
+        "review_capacity_target": 0.01,
+        "block_precision_target": 0.98
+      },
+      "balanced": {
+        "approve_threshold": 0.32061562877852007,
+        "block_threshold": 0.631136794838037,
+        "review_capacity_target": 0.02,
+        "block_precision_target": 0.9
+      },
+      "aggressive": {
+        "approve_threshold": 0.08868095916051201,
+        "block_threshold": 0.2305469464629633,
+        "review_capacity_target": 0.05,
+        "block_precision_target": 0.7
+      }
+    },
+    "note": "These thresholds are modeling-policy decisions calibrated on historical validation data, not guaranteed real-world financial or legal rules."
+  },
+  "test_eval": {
+    "policy_name": "balanced",
+    "approve_threshold": 0.32061562877852007,
+    "block_threshold": 0.631136794838037,
+    "n_transactions_total": 88581,
+    "total_fraud_cases": 3083,
+    "total_legitimate_cases": 85498,
+    "buckets": {
+      "APPROVE": {
+        "count": 86730,
+        "pct_of_total": 0.9791038710332916,
+        "fraud_count": 1792,
+        "legitimate_count": 84938,
+        "fraud_rate": 0.02066182405165456
+      },
+      "REVIEW": {
+        "count": 722,
+        "pct_of_total": 0.008150732098305505,
+        "fraud_count": 333,
+        "legitimate_count": 389,
+        "fraud_rate": 0.46121883656509693
+      },
+      "BLOCK": {
+        "count": 1129,
+        "pct_of_total": 0.01274539686840293,
+        "fraud_count": 958,
+        "legitimate_count": 171,
+        "fraud_rate": 0.8485385296722764
+      }
+    },
+    "fraud_captured_review_plus_block": 1291,
+    "fraud_captured_block_alone": 958,
+    "fraud_missed_in_approve": 1792,
+    "fraud_recall_review_plus_block": 0.4187479727538112,
+    "precision_among_reviewed": 0.46121883656509693,
+    "precision_among_blocked": 0.8485385296722764,
+    "pct_legitimate_sent_to_review": 0.004549814030737561,
+    "pct_legitimate_blocked": 0.0020000467847201106,
+    "pct_legitimate_intervened": 0.006549860815457671,
+    "legitimate_transactions_reviewed": 389,
+    "legitimate_transactions_blocked": 171
+  },
+  "comparison_val": {
+    "matched_intervention_fraction": 0.02000428985899911,
+    "three_way_policy": {
+      "policy_name": "balanced",
+      "n_intervened": 1772,
+      "fraud_captured": 1370,
+      "fraud_recall": 0.45036160420775806,
+      "precision_among_blocked": 0.9019097222222222,
+      "precision_among_reviewed": 0.5338709677419354
+    },
+    "simple_fixed_budget_ranking": {
+      "n_intervened": 1772,
+      "fraud_captured": 1370,
+      "fraud_recall": 0.45036160420775806,
+      "precision_among_flagged": 0.7731376975169301
+    },
+    "fraud_recall_delta_three_way_minus_simple": 0.0,
+    "note": "The three-way policy's key structural difference from simple ranking is not raw recall at the matched budget (both flag the same NUMBER of transactions, so recall is necessarily very similar or identical) \u2014 it is that the same intervention budget is split into a high-confidence automated BLOCK tier and a lower-confidence manual REVIEW tier, which a flat ranked list does not distinguish. See the Phase 5 report for the operational interpretation."
+  },
+  "comparison_test": {
+    "matched_intervention_fraction": 0.020896128966708435,
+    "three_way_policy": {
+      "policy_name": "balanced",
+      "n_intervened": 1851,
+      "fraud_captured": 1291,
+      "fraud_recall": 0.4187479727538112,
+      "precision_among_blocked": 0.8485385296722764,
+      "precision_among_reviewed": 0.46121883656509693
+    },
+    "simple_fixed_budget_ranking": {
+      "n_intervened": 1851,
+      "fraud_captured": 1291,
+      "fraud_recall": 0.4187479727538112,
+      "precision_among_flagged": 0.697460831982712
+    },
+    "fraud_recall_delta_three_way_minus_simple": 0.0,
+    "note": "The three-way policy's key structural difference from simple ranking is not raw recall at the matched budget (both flag the same NUMBER of transactions, so recall is necessarily very similar or identical) \u2014 it is that the same intervention budget is split into a high-confidence automated BLOCK tier and a lower-confidence manual REVIEW tier, which a flat ranked list does not distinguish. See the Phase 5 report for the operational interpretation."
+  }
+}

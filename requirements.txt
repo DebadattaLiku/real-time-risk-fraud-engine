@@ -1,0 +1,35 @@
+# Phase 0 + 1 + 2A + 2B + 3 + 4 + 5 + 6 + 7 + 8 dependencies.
+#
+# Phase 8 note: versions are pinned EXACTLY (not just lower-bounded),
+# matching the environment that actually trained/pickled
+# data/interim/phase6_model_bundle.pkl. This was not a hypothetical
+# concern — the first real Docker build of this image (unpinned,
+# `scikit-learn>=1.3`) pulled scikit-learn 1.9.0 while the bundle had been
+# pickled with 1.8.0, and the container logged a real
+# `InconsistentVersionWarning` at startup when unpickling the model's
+# LabelEncoder. It still worked in that instance, but relying on that
+# working by chance is exactly the kind of reproducibility gap this phase
+# exists to close — pinning removes it rather than hoping future installs
+# stay compatible.
+pandas==3.0.2
+numpy==2.4.4
+matplotlib==3.10.8
+pyyaml==6.0.3
+pytest==9.1.1
+scikit-learn==1.8.0
+lightgbm==4.7.0
+scipy==1.17.1
+# Phase 13 note: `starlette` is pinned explicitly even though it also
+# arrives transitively via `fastapi` — `src/monitoring/middleware.py`
+# imports it directly (`BaseHTTPMiddleware`, `Request`), so it belongs in
+# the documented dependency set on its own merits: a future fastapi
+# version could loosen or change its starlette constraint without this
+# repository's own direct usage being pinned to a known-working version.
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn==0.52.4
+httpx==0.28.1
+pydantic==2.13.5
+requests==2.33.1
+streamlit==1.63.0
+responses==0.26.3

@@ -1,0 +1,54 @@
+# Phase 13 audit: this repository had no .gitignore — a genuine
+# repository-hygiene gap for a project intended to be version-controlled
+# and eventually pushed to a real remote. Entries below are grouped by
+# rationale; nothing that's needed for reproducibility is excluded (the
+# trained model bundle, the drift reference profile, the governance
+# registry, and config/decision_policy.yaml are all deliberately real,
+# checked-in artifacts — see each phase's report for why).
+
+# --- Raw dataset: large (~1.3GB), never meant to be committed. Every
+# phase's scripts regenerate data/interim/*.json and the model bundle
+# from this directory; only the raw CSVs themselves are excluded.
+
+data/processed/
+
+# --- Python / tooling artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# --- Local environments
+.venv/
+venv/
+env/
+
+# --- Local secrets/config — .env.example is the committed template; a
+# real .env (if anyone creates one locally) must never be committed.
+.env
+!.env.example
+
+# --- Editor / OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Logs and local scratch/sandbox artifacts
+*.log
+swapfile
+.sandbox-ca-certs/
+
+# --- Jupyter notebook checkpoints (the notebooks/ directory itself is
+# for exploration/visualization only, per README — checkpoints are pure
+# editor state, never meant to be committed)
+.ipynb_checkpoints/
+
+# --- Docker Compose local override, if anyone creates one
+docker-compose.override.yml

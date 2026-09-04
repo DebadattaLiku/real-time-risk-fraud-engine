@@ -1,0 +1,26 @@
+policy_name: balanced
+approve_threshold: 0.32061562877852007
+block_threshold: 0.631136794838037
+selection_criteria: 'Selected on VALIDATION data only: balances fraud recall, BLOCK-bucket
+  precision, and legitimate-customer friction across three candidate operating policies
+  (conservative/balanced/aggressive).'
+review_capacity_assumption: 0.02
+block_precision_target: 0.9
+candidate_policies_considered:
+  conservative:
+    approve_threshold: 0.8077983060201368
+    block_threshold: 0.9677293717996754
+    review_capacity_target: 0.01
+    block_precision_target: 0.98
+  balanced:
+    approve_threshold: 0.32061562877852007
+    block_threshold: 0.631136794838037
+    review_capacity_target: 0.02
+    block_precision_target: 0.9
+  aggressive:
+    approve_threshold: 0.08868095916051201
+    block_threshold: 0.2305469464629633
+    review_capacity_target: 0.05
+    block_precision_target: 0.7
+note: These thresholds are modeling-policy decisions calibrated on historical validation
+  data, not guaranteed real-world financial or legal rules.
