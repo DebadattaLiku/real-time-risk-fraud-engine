@@ -45,7 +45,7 @@ The project uses the **IEEE-CIS Fraud Detection** dataset, consisting of anonymi
 
 ```text
                          ┌──────────────────────┐
-                         │      Transaction      │
+                         │      Transaction     │
                          └──────────┬───────────┘
                                     │
                                     ▼
@@ -81,7 +81,7 @@ The project uses the **IEEE-CIS Fraud Detection** dataset, consisting of anonymi
                                     ▼
                          ┌──────────────────────┐
                          │    Risk Score        │
-                         │       [0, 1]          │
+                         │       [0, 1]         │
                          └──────────┬───────────┘
                                     │
                                     ▼
@@ -102,7 +102,7 @@ The project uses the **IEEE-CIS Fraud Detection** dataset, consisting of anonymi
                      └─────────────────────────────┘
 
               ┌─────────────────────────────────────────┐
-              │ Monitoring │ Drift │ Governance │ Logs │
+              │ Monitoring │ Drift │ Governance │ Logs  │
               └─────────────────────────────────────────┘
 ```
 
