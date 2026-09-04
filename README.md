@@ -9,7 +9,6 @@
 [![Tests](https://img.shields.io/badge/Tests-316%20passed-success.svg)](#testing)
 [![Git LFS](https://img.shields.io/badge/Dataset-Git%20LFS-orange.svg)](https://git-lfs.com/)
 
----
 
 ## 1. Overview
 
@@ -41,7 +40,6 @@ The system combines:
 
 The project uses the **IEEE-CIS Fraud Detection** dataset, consisting of anonymized e-commerce transactions provided through the Kaggle competition.
 
----
 
 ## 2. System Architecture
 
@@ -108,7 +106,6 @@ The project uses the **IEEE-CIS Fraud Detection** dataset, consisting of anonymi
               └─────────────────────────────────────────┘
 ```
 
----
 
 ## 3. Quantitative Results & Experimental Evidence
 
@@ -257,7 +254,6 @@ A candidate that fails any hard gate is rejected; candidates requiring review do
 
 > **Note:** A synthetic label-informed candidate used during governance testing achieved PR-AUC 0.8700, but this was a governance test artifact and is **not** a real model-performance result. It is intentionally excluded from the headline performance metrics.
 
----
 
 ### Headline Numbers
 
@@ -266,7 +262,6 @@ If you only remember a few numbers from this project:
 **0.5483 PR-AUC** · **0.9058 ROC-AUC** · **60.14% Recall@5%** · **84.85% BLOCK precision** · **0.20% legitimate blocked** · **999999996 correlation** · **316 tests passed**
 
 
----
 
 ## 4. Dataset
 
@@ -289,7 +284,6 @@ data/raw/
 
 The training transaction dataset contains approximately **590K transactions**.
 
----
 
 ## 5. Leakage-Aware Machine Learning Pipeline
 
@@ -322,7 +316,6 @@ To avoid this, the project uses a strict chronological split based on `Transacti
 
 No future transaction information is used when generating behavioral features for an earlier transaction.
 
----
 
 ## 6. Baseline → Champion Evolution
 
@@ -340,7 +333,6 @@ The first baseline established the difficulty of the problem.
 
 The LightGBM model substantially improved ranking quality over the linear baseline.
 
----
 
 ## 7. Behavioral Intelligence
 
@@ -379,7 +371,6 @@ The current transaction is **never added to the state before prediction**.
 
 This prevents target/temporal leakage in the online feature pipeline.
 
----
 
 ## 8. Behavioral Feature Impact
 
@@ -401,7 +392,6 @@ This demonstrates an important engineering principle:
 
 > A feature engineering layer should be retained because it provides measurable incremental value—not simply because it makes the architecture more complicated.
 
----
 
 ## 9. Fraud Risk → Operational Decision
 
@@ -439,7 +429,6 @@ while only blocking approximately:
 
 **0.20% of legitimate transactions.**
 
----
 
 ## 10. Why PR-AUC?
 
@@ -462,7 +451,6 @@ Therefore the project emphasizes:
 
 These metrics better reflect the actual operating constraints of fraud detection.
 
----
 
 ## 11. Real-Time Stateful Inference
 
@@ -492,7 +480,6 @@ The model bundle is loaded once at application startup.
 
 The stateful risk engine is reused by the API rather than duplicating inference logic inside the HTTP layer.
 
----
 
 ## 12. Offline / Online Parity
 
@@ -509,7 +496,6 @@ On a 3,000-transaction chronological simulation:
 
 These results were obtained before the later numerical-stability engineering fix and are retained as the historical parity validation result.
 
----
 
 ## 13. FastAPI Serving
 
@@ -544,7 +530,6 @@ curl -X POST http://localhost:8000/predict \
      -d @example_transaction.json
 ```
 
----
 
 ## 14. Monitoring
 
@@ -578,7 +563,6 @@ Metrics are exposed in a Prometheus-compatible text format through:
 /metrics
 ```
 
----
 
 ## 15. Drift Detection
 
@@ -630,7 +614,6 @@ Behavioral features naturally accumulate historical information.
 
 Therefore, chronological drift in variables such as historical transaction counts or historical mean amount does **not automatically imply a data-quality problem**.
 
----
 
 ## 16. Model Governance
 
@@ -689,7 +672,6 @@ Artifact SHA-256:
 bb5de8767ebaffae90a8ca634380524e2002f67d38fb87528ea5911479686342
 ```
 
----
 
 ## 17. Numerical Stability Engineering
 
@@ -720,7 +702,6 @@ Absolute error:
 
 This was accompanied by a regression test to prevent recurrence.
 
----
 
 ## 18. Dockerized Deployment
 
@@ -737,7 +718,6 @@ The model bundle is included explicitly while the large raw dataset remains mana
 
 The Docker build was also used to expose and resolve dependency compatibility issues, including exact version pinning for the serving environment.
 
----
 
 ## 19. Streamlit Dashboard
 
@@ -764,7 +744,6 @@ The dashboard intentionally avoids duplicating:
 
 Instead, it consumes the same engine/API functionality used by the production path.
 
----
 
 ## 20. Testing
 
@@ -792,7 +771,6 @@ Current test result:
 
 The project also includes CI configuration for automated testing.
 
----
 
 ## 21. Repository Structure
 
@@ -833,7 +811,6 @@ real-time-risk-fraud-engine/
 └── README.md
 ```
 
----
 
 ## 22. Reproducibility
 
@@ -859,7 +836,6 @@ The final test partition remains isolated from model-selection decisions.
 
 Model artifacts are versioned and protected through SHA-256 verification.
 
----
 
 ## 23. Engineering Principles
 
@@ -893,7 +869,6 @@ A new model should not automatically replace the existing champion.
 
 Correct mathematical formulas are not always sufficient for reliable floating-point computation.
 
----
 
 ## 24. Limitations
 
@@ -919,7 +894,6 @@ Cumulative behavioral variables naturally evolve over chronological time and the
 
 The project demonstrates production-oriented ML engineering patterns but is not intended to represent a complete enterprise fraud platform with distributed state stores, message queues, feature stores, or multi-region deployment.
 
----
 
 ## 25. Why This Project Is Different
 
@@ -962,7 +936,6 @@ The emphasis is therefore not only on **model performance**, but on:
 
 **ML + feature engineering + state + serving + monitoring + drift + governance + reliability.**
 
----
 
 ## 26. Tech Stack
 
@@ -1003,7 +976,6 @@ The emphasis is therefore not only on **model performance**, but on:
 - GitHub Actions
 - Pytest
 
----
 
 ## 27. Running Locally
 
@@ -1052,7 +1024,6 @@ pytest -q
 
 Run the Streamlit dashboard using the project's dashboard entry point.
 
----
 
 ## 28. Future Improvements
 
@@ -1074,7 +1045,6 @@ Potential extensions include:
 - Distributed observability
 - Online model experimentation
 
----
 
 ## 29. Author
 
@@ -1084,7 +1054,6 @@ Indian Institute of Technology Madras
 
 This project was developed as a production-oriented machine-learning engineering portfolio project, with emphasis on **fraud detection, real-time decision systems, MLOps, model governance, and reliable ML serving**.
 
----
 
 ## License & Dataset Notice
 
