@@ -1,0 +1,16 @@
+# Non-secret configuration only. Real credentials belong in a Secret
+# (see secret.example.yaml) — never here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fraud-risk-api-config
+  namespace: fraud-risk-engine
+data:
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  WARM_START_STATE: "false"          # cold-start in the container, as in Phase 8's Dockerfile default
+  STATE_BACKEND: "redis"              # "memory" or "redis" — see src/api/dependencies.py:build_state_backend
+  REDIS_URL: "redis://redis:6379/0"    # placeholder — points at the redis Service defined in redis-deployment.yaml (LOCAL/dev topology; see README for the AWS ElastiCache mapping)
+  KAFKA_BROKERS: "kafka:9092"           # placeholder — see README: no real broker was ever run against this in this project's development environment
+  ENABLE_SHAP_EXPLAINABILITY: "true"
+  APP_ENV: "kubernetes"

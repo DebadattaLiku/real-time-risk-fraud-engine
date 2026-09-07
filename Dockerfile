@@ -57,14 +57,22 @@ RUN update-ca-certificates || true
 # -----------------------------------------------------------------------
 
 # Dependencies installed before application code so this layer is cached
-# across rebuilds that only touch source files, not requirements.txt.
+# across rebuilds that only touch source files, not requirements-docker.txt.
 # --break-system-packages: harmless no-op on the standard python:3.12-slim
 # base (not "externally managed"), but required on the registry-free
 # Ubuntu substitute base described above, whose apt-installed python3-pip
 # DOES enforce PEP 668. Included unconditionally so the same Dockerfile
 # works correctly against either base.
-COPY requirements.txt .
-RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
+#
+# requirements-docker.txt (not requirements.txt) is used deliberately: it
+# is requirements.txt minus `mlflow`, whose large transitive dependency
+# tree (pyarrow, numba/llvmlite, sqlalchemy, alembic, cryptography,
+# graphene, flask, gunicorn, databricks-sdk) is real overhead for a
+# feature (`/model-governance/summary`'s optional MLflow cross-reference)
+# that already degrades gracefully without it — see that route's
+# try/except in src/api/main.py and reports/production_readiness.md.
+COPY requirements-docker.txt .
+RUN pip install --no-cache-dir --break-system-packages -r requirements-docker.txt
 
 # Only what the inference service actually needs at runtime — see
 # .dockerignore for the full exclusion list (raw dataset, notebooks,

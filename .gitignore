@@ -45,6 +45,14 @@ Thumbs.db
 swapfile
 .sandbox-ca-certs/
 
+# --- Logs and local scratch/sandbox artifacts
+*.log
+swapfile
+.sandbox-ca-certs/
+
+# Redis persistence
+*.rdb
+
 # --- Jupyter notebook checkpoints (the notebooks/ directory itself is
 # for exploration/visualization only, per README — checkpoints are pure
 # editor state, never meant to be committed)
@@ -52,3 +60,12 @@ swapfile
 
 # --- Docker Compose local override, if anyone creates one
 docker-compose.override.yml
+
+# --- Production upgrade: local MLflow tracking store/artifacts —
+# regenerable via `python scripts/log_champion_to_mlflow.py`, not
+# reproducibility-critical the way the model bundle/registry/reference
+# profile are (those remain committed, per the rationale at the top of
+# this file).
+mlflow.db
+mlruns/
+mlartifacts/

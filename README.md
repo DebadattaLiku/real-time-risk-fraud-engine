@@ -1,1062 +1,793 @@
 # Real-Time Risk Decision & Fraud Intelligence Engine
 
-> **Production-oriented fraud intelligence platform for real-time transaction risk scoring, behavioral feature engineering, operational decisioning, monitoring, drift detection, and model governance.**
+A production-style ML platform for real-time fraud risk scoring, historical
+behavioral intelligence, operational decisioning, monitoring, drift
+detection, and model governance — built end-to-end on the IEEE-CIS Fraud
+Detection dataset.
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
-[![LightGBM](https://img.shields.io/badge/Model-LightGBM-brightgreen.svg)](https://lightgbm.readthedocs.io/)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Deployment-Docker-2496ED.svg)](https://www.docker.com/)
-[![Tests](https://img.shields.io/badge/Tests-316%20passed-success.svg)](#testing)
-[![Git LFS](https://img.shields.io/badge/Dataset-Git%20LFS-orange.svg)](https://git-lfs.com/)
+**This is a local, portfolio-grade engineering system, not a deployed
+production service.** Every claim in this document is traceable to a real,
+executed artifact in this repository — see `reports/phase14_documentation_plan.md`
+for the full evidence audit behind this README.
 
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.141-teal)
+![LightGBM](https://img.shields.io/badge/LightGBM-4.7-green)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.63-red)
+![Docker](https://img.shields.io/badge/Docker-containerized-2496ED)
+![Tests](https://img.shields.io/badge/tests-316%20passing-brightgreen)
 
-## 1. Overview
+## Status
 
-Fraud detection is not simply a binary classification problem.
+**Phases 0-15 complete**, including a subsequent production-grade
+infrastructure upgrade (Redis-backed state, Kafka streaming abstraction,
+SHAP explainability, MLflow tracking, Kubernetes manifests, AWS
+deployment mapping). See `reports/phase*_summary.md` for the original
+14 phases, and `reports/production_readiness.md` for the full,
+consolidated write-up of the upgrade — including exactly what was
+measured, what could not be measured in this development environment,
+and what remains design-only.
 
-A production fraud system must answer four questions for every transaction:
+---
 
-1. **How risky is this transaction?**
-2. **What historical behavior does it exhibit?**
-3. **Should the transaction be approved, reviewed, or blocked?**
-4. **Can the system continue operating reliably as the data and model environment change?**
+## Table of Contents
 
-This project implements an end-to-end **Real-Time Risk Decision & Fraud Intelligence Engine** that addresses these requirements.
+1. [Project Overview](#project-overview)
+2. [System Architecture](#system-architecture)
+3. [Key Results](#key-results)
+4. [Dataset](#dataset)
+5. [Leakage-Aware Evaluation](#leakage-aware-evaluation)
+6. [Machine Learning Methodology](#machine-learning-methodology)
+7. [Behavioral Intelligence](#behavioral-intelligence)
+8. [Decision Policy](#decision-policy)
+9. [Real-Time Stateful Engine](#real-time-stateful-engine)
+10. [API](#api)
+11. [Monitoring](#monitoring)
+12. [Drift Detection](#drift-detection)
+13. [Model Governance](#model-governance)
+14. [Dashboard](#dashboard)
+15. [Docker](#docker)
+16. [Testing & CI](#testing--ci)
+17. [Project Structure](#project-structure)
+18. [Reproducibility / Quick Start](#reproducibility--quick-start)
+19. [Engineering Decisions](#engineering-decisions)
+20. [Limitations & Responsible Interpretation](#limitations--responsible-interpretation)
+21. [Phase / Research Log](#phase--research-log)
 
-The system combines:
+---
 
-- Leakage-aware chronological model development
-- LightGBM fraud-risk modeling
-- Strictly historical behavioral features
-- Stateful online feature computation
-- Three-way operational decisioning
-- FastAPI real-time serving
-- Prometheus-compatible monitoring
-- PSI/KS drift detection
-- Model governance and promotion gates
-- Dockerized deployment
-- Streamlit operational dashboard
-- Automated testing and CI
+## Project Overview
 
-The project uses the **IEEE-CIS Fraud Detection** dataset, consisting of anonymized e-commerce transactions provided through the Kaggle competition.
+Fraud detection is a genuinely hard applied ML problem, for reasons that
+shape almost every design decision in this repository:
 
+- **Severe class imbalance.** Only 3.499% of the 590,540 transactions in
+  this dataset are fraudulent. A model optimized for accuracy would
+  happily predict "not fraud" every time and be right 96.5% of the time
+  while catching zero fraud — this project evaluates with PR-AUC and
+  recall-at-review-budget instead, which are the metrics that actually
+  matter under this kind of imbalance.
+- **Temporal leakage is easy to introduce by accident.** A random
+  train/test split would let the model implicitly learn from the future
+  to predict the past — every split, every feature, and every
+  preprocessing step in this project is strictly chronological (see
+  [Leakage-Aware Evaluation](#leakage-aware-evaluation)).
+- **A fraud probability alone isn't an operational decision.** A risk
+  score has to become an action — approve, send to a human reviewer, or
+  block — and that mapping has real business tradeoffs (analyst workload
+  vs. fraud caught vs. legitimate customers inconvenienced). See
+  [Decision Policy](#decision-policy).
+- **Fraud patterns are historical, not just transactional.** A single
+  transaction in isolation is less informative than "how does this
+  compare to this same card's own recent history?" — which requires
+  maintaining state across transactions in real time, not just scoring
+  each one independently. See [Real-Time Stateful Engine](#real-time-stateful-engine).
+- **A model that works today can silently stop working.** Data
+  distributions shift, and a model deployed once and never checked again
+  is a liability — which is why this project includes passive drift
+  monitoring and an explicit, human-gated model governance workflow, not
+  just a trained model.
 
-## 2. System Architecture
+This repository builds all of that: a leakage-safe evaluation pipeline, a
+trained LightGBM fraud model augmented with historical behavioral
+features, a frozen three-way decision policy, a stateful real-time
+serving engine, a FastAPI service, a Docker image, Prometheus-style
+observability, PSI/KS drift detection, a local model governance registry
+with promotion gates, and a Streamlit dashboard that presents all of it —
+each phase independently tested and documented.
+
+---
+
+## System Architecture
 
 ```text
-                         ┌──────────────────────┐
-                         │      Transaction     │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │ Input Validation &   │
-                         │   Data Quality       │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │ Historical State     │
-                         │      Lookup          │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │ Behavioral Feature   │
-                         │     Generation       │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │   Preprocessing      │
-                         │ Numeric + Categorical│
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │ LightGBM Fraud Risk  │
-                         │       Model          │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │    Risk Score        │
-                         │       [0, 1]         │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                     ┌─────────────────────────────┐
-                     │     Decision Policy         │
-                     └─────────────┬───────────────┘
-                                   │
-                  ┌────────────────┼────────────────┐
-                  ▼                ▼                ▼
-             ┌────────┐      ┌────────┐      ┌────────┐
-             │APPROVE │      │ REVIEW │      │ BLOCK  │
-             └────────┘      └────────┘      └────────┘
-                  │                │                │
-                  └────────────────┼────────────────┘
-                                   ▼
-                     ┌─────────────────────────────┐
-                     │ State Update After Prediction│
-                     └─────────────────────────────┘
-
-              ┌─────────────────────────────────────────┐
-              │ Monitoring │ Drift │ Governance │ Logs  │
-              └─────────────────────────────────────────┘
+IEEE-CIS Fraud Transactions
+          │
+          ▼
+ Chronological Data Pipeline        (Phases 0-1: EDA, leakage-safe split/pipeline)
+          │
+          ▼
+Historical Behavioral Features      (Phase 4: bhv_* features, card1 pseudo-entity)
+          │
+          ▼
+      LightGBM                      (Phase 2B/4: the trained champion model)
+          │
+          ▼
+      Risk Score
+          │
+          ▼
+    Decision Policy                 (Phase 5: frozen APPROVE/REVIEW/BLOCK thresholds)
+     ┌────┼────┐
+     ▼    ▼    ▼
+ APPROVE REVIEW BLOCK
+          │
+          ▼
+ ┌─────────────────────────────┐
+ │ Real-Time Stateful Engine   │    (Phase 6: RiskDecisionEngine)
+ │ FastAPI                     │    (Phase 7-8: API + Docker)
+ │ Monitoring                  │    (Phase 9: Prometheus-style /metrics)
+ │ Drift Detection             │    (Phase 10: PSI + KS vs. reference)
+ │ Model Governance            │    (Phase 11: registry + promotion gates)
+ │ Streamlit Dashboard         │    (Phase 12: presentation layer)
+ └─────────────────────────────┘
 ```
 
+**A note on Isolation Forest.** An earlier design considered fusing a
+supervised model with an unsupervised anomaly detector. Phase 3 evaluated
+Isolation Forest exactly this way and found it did **not** provide
+meaningful complementary fraud signal (Test PR-AUC 0.0449 — only
+marginally above the 0.0348 no-skill baseline for this dataset's fraud
+rate, and its flagged transactions were >99% already caught by LightGBM
+alone). It was explicitly **rejected** as a modeling decision, backed by
+evidence, and is not part of the shipped architecture — see
+[Machine Learning Methodology](#machine-learning-methodology) and
+`reports/phase3_anomaly_detection_summary.md`.
 
-## 3. Quantitative Results & Experimental Evidence
+### Offline vs. online
 
-The final LightGBM + behavioral-feature champion was evaluated on a completely held-out chronological test partition.
+| | Offline | Online |
+|---|---|---|
+| **What** | Training, validation, evaluation, drift reference construction, governance evaluation | Request validation, historical state lookup, behavioral feature generation, prediction, decision, state update, monitoring |
+| **When** | Once per model/policy/reference version | Every request, in real time |
+| **Where** | `src/models/`, `src/decision/threshold_selection.py`, `src/run_phase10_build_reference.py`, `src/governance/evaluation.py` | `src/engine/risk_engine.py`, `src/api/main.py` |
 
-### 3.1 Model Performance
+**The current transaction is scored BEFORE its own data is added to that
+entity's historical behavioral state.** This ordering — predict, decide,
+*then* update state — is enforced in `RiskDecisionEngine.process_transaction()`
+and is the concrete mechanism that prevents a transaction from ever
+leaking into its own features. It's verified by a dedicated offline/online
+parity test suite (see [Real-Time Stateful Engine](#real-time-stateful-engine)).
 
-| Model / Experiment | Test PR-AUC | Test ROC-AUC |
+---
+
+## Key Results
+
+All figures below are the champion model's (`fraud-risk-lightgbm-v1`)
+**final, one-time evaluation on the held-out chronological test set**
+(88,581 transactions, never touched during training or threshold
+selection) unless a row explicitly says otherwise.
+
+| Area | Metric | Result | Evaluation Context |
+|---|---|---:|---|
+| Model | Test PR-AUC | **0.5483** | Full chronological test set (one-time) |
+| Model | Test ROC-AUC | **0.9058** | Full chronological test set (one-time) |
+| Ranking | Recall@1% review budget | **25.30%** | Full test set |
+| Ranking | Recall@2% review budget | **40.90%** | Full test set |
+| Ranking | Recall@5% review budget | **60.14%** | Full test set |
+| Behavioral features | PR-AUC improvement vs. transaction-only model | **+0.0055** (modest but measurable) | Validation set — the basis for the go/no-go decision to keep behavioral features |
+| Decisioning | Fraud captured (REVIEW + BLOCK) | **1,291 / 3,083** (41.9%) | Full test set, frozen policy |
+| Decisioning | Precision among BLOCKed transactions | **84.85%** | Full test set |
+| Decisioning | Legitimate customers blocked | **171 / 85,498** (0.20%) | Full test set |
+| Serving | Offline/online decision parity | **3,000 / 3,000 (100%)** | Phase 6 real-time simulation, 3,000-transaction slice |
+| Serving | Offline/online risk-score correlation | **0.999999996** | Same simulation |
+| Testing | Automated tests passing | **316 / 316** | Latest local run (`pytest -q`) |
+
+**On the offline/online score/decision parity above**: decisions matched
+100% and scores correlated at 0.999999996, but the underlying *feature*
+parity check (2,997/3,000 exact matches) surfaced one numerically unstable
+outlier — documented in `reports/phase6_realtime_engine_summary.md`. That
+finding was later diagnosed and fixed in Phase 13 (the real-time engine's
+variance computation now uses Welford's algorithm instead of a
+cancellation-prone formula — see [Testing & CI](#testing--ci) and
+`reports/phase13_engineering_audit_summary.md`). **The parity numbers
+above are from the original Phase 6 run and were not re-measured after
+that fix** (doing so requires a fresh multi-minute real-data simulation,
+not performed as part of this documentation phase) — presented here with
+that context intact, not silently updated.
+
+**On the Phase 6 simulation's own PR-AUC (0.5057)**: this is a *different,
+much smaller* number from a 3,000-row subset used to validate real-time
+parity — it is not, and should not be read as, the model's real
+performance. The 0.5483 figure above (the full 88,581-row test set) is
+the actual champion evaluation.
+
+---
+
+## Dataset
+
+[IEEE-CIS Fraud Detection](https://www.kaggle.com/competitions/ieee-fraud-detection)
+(Kaggle competition, Vesta Corporation transaction data) — anonymized,
+real-world e-commerce transaction and identity data.
+
+- **590,540 transactions**, 394 columns, **3.499% fraud rate**
+- `isFraud`: the binary target
+- `TransactionDT`: a relative timestamp (seconds from a reference point,
+  not a calendar date) — this is what makes the data genuinely temporal
+  and is why random splitting would be misleading (see next section)
+- Transaction-level fields (amount, product code, card network) plus a
+  large block of anonymized numeric/categorical engineered features
+  (`C1-C14`, `D1-D15`, `V1-V339`, etc.) whose exact real-world meaning
+  Vesta did not disclose
+
+**`card1` is used as a pseudo-entity for historical behavioral
+aggregation because the dataset does not provide a verified customer
+identifier.** It is Vesta's internal card-related identifier, not a
+confirmed one-to-one mapping to a real person or account — every phase
+report and every behavioral-feature docstring in this codebase is
+explicit about that distinction, and this README preserves it.
+
+The raw CSVs are not committed to this repository (~1.3GB, and Kaggle
+requires authenticated access) — download them from the competition page
+and place them under `data/raw/` as `train_transaction.csv`,
+`train_identity.csv`, `test_transaction.csv`, `test_identity.csv` before
+running the Phase 0-6 pipeline from scratch. Running the API, dashboard,
+or test suite does **not** require this — the trained model bundle and
+all evaluation artifacts are already committed (see
+[Reproducibility / Quick Start](#reproducibility--quick-start)).
+
+---
+
+## Leakage-Aware Evaluation
+
+```text
+Past ──────────────────────────────────────────────► Future
+  │                │                │                  │
+  └── TRAIN ───────┘── VALIDATION ──┘──── TEST ─────────┘
+    413,378 rows      88,581 rows      88,581 rows
+      (70%)             (15%)             (15%)
+```
+
+The split is by `TransactionDT`, strictly chronological — never shuffled,
+never random. This matters because random splitting would let a model
+implicitly "see the future" relative to any given prediction (e.g. a
+later transaction's behavioral pattern informing an earlier one's
+features), which does not reflect how the model would actually be used at
+deployment time: scoring a transaction using only what happened *before*
+it. TRAIN is used to fit the model; VALIDATION is used for all threshold
+and hyperparameter selection; TEST is touched exactly once, for final
+reporting.
+
+---
+
+## Machine Learning Methodology
+
+**Baseline — Logistic Regression** (Phase 2A): established a simple,
+interpretable baseline on transaction-level features to calibrate
+expectations before investing in a more complex model.
+
+**Champion — LightGBM** (Phase 2B/4): gradient-boosted trees, the
+established strong performer for structured/tabular data with mixed
+numeric and categorical features and meaningful class imbalance. Trained
+on transaction-level features, then augmented with behavioral features
+(below) after those were validated to help.
+
+**Anomaly detection experiment — Isolation Forest** (Phase 3): evaluated
+as a potential complementary, unsupervised signal — the hypothesis being
+that an anomaly detector might catch fraud patterns the supervised model
+misses. Measured directly: Test PR-AUC of 0.0449, barely above the 0.0348
+no-skill baseline, with its own flagged transactions overwhelmingly
+already caught by LightGBM. **Rejected** based on this evidence — not
+used anywhere in the shipped system. This is a model-selection decision
+demonstrated with data, not an omission.
+
+---
+
+## Behavioral Intelligence
+
+Twelve `bhv_*` features computed per `card1` pseudo-entity, using **only**
+that entity's transactions strictly before the current one:
+
+| Feature | What it captures |
+|---|---|
+| `bhv_prev_txn_count` | How many prior transactions this entity has |
+| `bhv_hist_mean_amt` | Historical mean transaction amount |
+| `bhv_hist_std_amt` | Historical amount standard deviation |
+| `bhv_hist_min_amt` / `bhv_hist_max_amt` | Historical amount range |
+| `bhv_time_since_prev_txn` | Recency — seconds since the last transaction |
+| `bhv_amt_to_hist_mean_ratio` | Current amount vs. this entity's typical amount |
+| `bhv_amt_diff_from_hist_mean` | Current amount minus the historical mean |
+| `bhv_amt_zscore` | How many standard deviations this amount is from history |
+| `bhv_prior_count_1h` / `bhv_prior_count_24h` | Short-term transaction velocity |
+
+**Features are computed strictly from transactions that occurred before
+the current transaction being scored — never from the current transaction
+itself.** This is enforced structurally (not just as a convention) in
+both the offline batch computation (`src/features/behavioral.py`) and the
+online stateful engine (`src/engine/state.py`, which updates state only
+*after* prediction). Adding these features produced a modest but
+measurable validation PR-AUC improvement of **+0.0055** over the
+transaction-only model (0.6147 vs. 0.6092) — real, reproducible, and
+correctly sized: this is a genuine but incremental gain, not a
+transformative one, and this README does not claim otherwise.
+
+---
+
+## Decision Policy
+
+```text
+Risk Score
+    │
+    ├── < approve_threshold        → APPROVE
+    ├── between thresholds          → REVIEW  (sent to a human analyst)
+    └── ≥ block_threshold           → BLOCK
+```
+
+Thresholds (`approve_threshold = 0.3206`, `block_threshold = 0.6311`)
+were selected on the **validation** partition only, then frozen and
+evaluated exactly once on the test set — never tuned against test-set
+results. On the full test set, this policy produces:
+
+| Decision | % of traffic | Fraud rate within bucket |
 |---|---:|---:|
-| Logistic Regression — standard | 0.1604 | 0.7940 |
-| Logistic Regression — balanced | 0.1481 | 0.8006 |
-| LightGBM — pre-behavioral | **0.5428** | **0.9024** |
-| LightGBM + behavioral features | **0.5483** | **0.9058** |
+| APPROVE | 97.91% | 2.07% |
+| REVIEW | 0.82% | 46.12% |
+| BLOCK | 1.27% | 84.85% |
 
-The behavioral layer improved test PR-AUC by **+0.0055** and ROC-AUC by **+0.0034**.
+This reflects a real, explicit business tradeoff: BLOCK is highly
+precise (84.85% of blocked transactions are genuinely fraudulent) but
+still lets **58.1% of all fraud through as APPROVE** (1,792 of 3,083
+fraud cases) — a limitation this project states plainly rather than
+hides (see [Limitations](#limitations--responsible-interpretation)).
+REVIEW exists specifically to route ambiguous cases to human judgment
+rather than forcing a binary automated call on every transaction.
 
-The improvement is deliberately reported as modest: the behavioral features provide measurable incremental value, but the project does not overstate their impact.
+---
 
-### 3.2 Operational Ranking Performance
-
-| Metric | Result |
-|---|---:|
-| Recall @ 1% intervention budget | **25.30%** |
-| Recall @ 2% intervention budget | **40.90%** |
-| Recall @ 5% intervention budget | **60.14%** |
-| Test fraud prevalence | **3.48%** |
-
-At a **2% intervention budget**, the champion captures **1,259 / 3,083 fraudulent transactions = 40.90% recall**.
-
-### 3.3 Decision Policy Performance
-
-The production policy converts model risk scores into `APPROVE`, `REVIEW`, and `BLOCK`.
-
-| Decision / Metric | Test Result |
-|---|---:|
-| APPROVE | **97.9104%** |
-| REVIEW | **0.8151%** |
-| BLOCK | **1.2745%** |
-| Fraud captured by REVIEW + BLOCK | **1,291 / 3,083 = 41.87%** |
-| BLOCK precision | **84.85%** |
-| Legitimate transactions blocked | **0.20%** |
-| Legitimate transactions reviewed | **0.455%** |
-| Total legitimate intervention rate | **0.655%** |
-
-This demonstrates the distinction between **model ranking** and **operational decisioning**: the system is evaluated under realistic intervention constraints rather than accuracy alone.
-
-### 3.4 Alternative Anomaly Detection Experiment
-
-Isolation Forest was evaluated as a complementary unsupervised component.
-
-| Metric | Isolation Forest |
-|---|---:|
-| Test PR-AUC | **0.0449** |
-| Test ROC-AUC | **0.5448** |
-| Fraud prevalence baseline | **0.0348** |
-| Additional fraud cases uniquely captured beyond LightGBM @ 2% budget | **24** |
-
-Because its performance was close to the fraud-rate baseline and it added limited incremental detection value, Isolation Forest was **rejected as a production component**.
-
-This experiment demonstrates that additional algorithms were evaluated based on measurable incremental value rather than added for architectural complexity.
-
-### 3.5 Behavioral Feature Engineering
-
-The behavioral pipeline computes **12 strictly historical features**.
-
-| Engineering Result | Value |
-|---|---:|
-| Rows processed for full behavioral computation | **590,540** |
-| Computation time | **< 1 second** |
-| Current transaction included before prediction | **No** |
-| Historical state updated | **After prediction** |
-
-Behavioral features include historical transaction counts, amount statistics, recency, amount deviation, and prior 1-hour / 24-hour activity.
-
-### 3.6 Offline / Online Parity
-
-A chronological real-time simulation compared offline feature generation against the stateful online engine.
-
-| Parity Metric | Result |
-|---|---:|
-| Fully matched feature rows | **2,997 / 3,000** |
-| Median feature difference | **0** |
-| 99th-percentile feature difference | **7.4 × 10⁻⁶** |
-| Risk-score Pearson correlation | **0.999999996** |
-| Risk-score MAE | **~1.5 × 10⁻⁷** |
-| Decision agreement | **3,000 / 3,000** |
-| Direct engine ↔ API mismatches | **0 / 10** |
-
-These parity measurements were obtained before the later numerical-stability fix and are retained as the historical parity validation result.
-
-### 3.7 Numerical Stability
-
-The stateful engine was upgraded from naive variance accumulation to **Welford's online algorithm**.
-
-For an adversarial large-base, tightly clustered numerical test:
-
-| Numerical Check | Result |
-|---|---:|
-| NumPy ground-truth std | **0.0009924527975957473** |
-| Welford std | **0.000992452792689105** |
-| Absolute error | **~4.91 × 10⁻¹²** |
-
-The previous naive formulation could produce a negative variance and `NaN` under this adversarial condition; the Welford implementation remained numerically stable.
-
-### 3.8 Docker & Serving Validation
-
-| Engineering Metric | Result |
-|---|---:|
-| Docker build context | **~4.29 MB** |
-| Container startup / health | **~6 seconds** |
-| Model loaded once at startup | **Yes** |
-| Stateful engine reused by API | **Yes** |
-
-### 3.9 Automated Testing
-
-The project contains tests spanning model behavior, state management, API serving, monitoring, drift, governance, dashboard, Docker configuration, and numerical stability.
-
-**Latest full test result: 316 passed.**
-
-### 3.10 Model Governance
-
-The champion model is:
+## Real-Time Stateful Engine
 
 ```text
-Model:    fraud-risk-lightgbm-v1
-Version:  v1
-Status:   CHAMPION
-```
-
-Artifact integrity is verified using SHA-256:
-
-```text
-bb5de8767ebaffae90a8ca634380524e2002f67d38fb87528ea5911479686342
-```
-
-Governance evaluates:
-
-- Metric availability
-- Feature-schema compatibility
-- Candidate quality
-- Performance degradation
-- Operational compatibility
-- Decision-policy compatibility
-
-A candidate that fails any hard gate is rejected; candidates requiring review do not automatically replace the champion.
-
-> **Note:** A synthetic label-informed candidate used during governance testing achieved PR-AUC 0.8700, but this was a governance test artifact and is **not** a real model-performance result. It is intentionally excluded from the headline performance metrics.
-
-
-### Headline Numbers
-
-If you only remember a few numbers from this project:
-
-**0.5483 PR-AUC** · **0.9058 ROC-AUC** · **60.14% Recall@5%** · **84.85% BLOCK precision** · **0.20% legitimate blocked** · **999999996 correlation** · **316 tests passed**
-
-
-
-## 4. Dataset
-
-The project uses the **IEEE-CIS Fraud Detection** dataset.
-
-The dataset contains anonymized e-commerce transaction and identity information.
-
-The raw dataset is maintained locally and tracked through **Git LFS** because of its large size.
-
-### Dataset files
-
-```text
-data/raw/
-├── train_transaction.csv
-├── train_identity.csv
-├── test_transaction.csv
-├── test_identity.csv
-└── sample_submission.csv
-```
-
-The training transaction dataset contains approximately **590K transactions**.
-
-
-## 5. Leakage-Aware Machine Learning Pipeline
-
-Fraud data is inherently temporal.
-
-Randomly splitting transactions can allow information from the future to influence historical predictions.
-
-To avoid this, the project uses a strict chronological split based on `TransactionDT`.
-
-```text
-590,540 transactions
-
-        ┌──────────────────────┐
-        │       TRAIN          │
-        │      413,378         │
-        └──────────┬───────────┘
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │    VALIDATION        │
-        │       88,581         │
-        └──────────┬───────────┘
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │        TEST          │
-        │       88,581         │
-        └──────────────────────┘
-```
-
-No future transaction information is used when generating behavioral features for an earlier transaction.
-
-
-## 6. Baseline → Champion Evolution
-
-The project intentionally develops the system incrementally instead of jumping directly to a complex model.
-
-### Logistic Regression Baseline
-
-The first baseline established the difficulty of the problem.
-
-| Model | Test PR-AUC | Test ROC-AUC |
-|---|---:|---:|
-| Logistic Regression | 0.1604 | 0.7940 |
-| LightGBM | 0.5428 | 0.9024 |
-| LightGBM + Behavioral Features | **0.5483** | **0.9058** |
-
-The LightGBM model substantially improved ranking quality over the linear baseline.
-
-
-## 7. Behavioral Intelligence
-
-A transaction-level fraud model becomes more informative when it understands the historical behavior associated with an entity.
-
-The project uses `card1` as a **pseudo-entity identifier** for historical behavioral aggregation. It is not treated as a verified customer identity.
-
-The behavioral layer generates strictly historical features such as:
-
-- Previous transaction count
-- Historical mean transaction amount
-- Historical standard deviation
-- Historical minimum/maximum amount
-- Time since previous transaction
-- Amount-to-history-mean ratio
-- Amount difference from historical mean
-- Historical amount z-score
-- Prior transaction count in the previous hour
-- Prior transaction count in the previous 24 hours
-
-### Critical design rule
-
-```text
-READ HISTORICAL STATE
-        ↓
-GENERATE FEATURES
-        ↓
-PREDICT
-        ↓
-MAKE DECISION
-        ↓
-UPDATE STATE
-```
-
-The current transaction is **never added to the state before prediction**.
-
-This prevents target/temporal leakage in the online feature pipeline.
-
-
-## 8. Behavioral Feature Impact
-
-The behavioral layer produced a measurable, validation-confirmed improvement:
-
-```text
-LightGBM
-PR-AUC = 0.5428
-
-        ↓
-
-LightGBM + Behavioral Features
-PR-AUC = 0.5483
-```
-
-The improvement is intentionally reported as **modest rather than exaggerated**.
-
-This demonstrates an important engineering principle:
-
-> A feature engineering layer should be retained because it provides measurable incremental value—not simply because it makes the architecture more complicated.
-
-
-## 9. Fraud Risk → Operational Decision
-
-A fraud probability alone is not enough for an operational system.
-
-The engine converts the risk score into three actions:
-
-```text
-                 Risk Score
-                     │
-        ┌────────────┼────────────┐
-        ▼            ▼            ▼
-     APPROVE       REVIEW        BLOCK
-```
-
-Thresholds are selected using the validation partition rather than tuned directly on the final test set.
-
-### Test decision distribution
-
-| Decision | Test Distribution |
-|---|---:|
-| APPROVE | 97.9104% |
-| REVIEW | 0.8151% |
-| BLOCK | 1.2745% |
-
-The combined **REVIEW + BLOCK** actions captured:
-
-**1,291 / 3,083 fraudulent transactions = 41.87%**
-
-The BLOCK decision achieved:
-
-**84.85% precision**
-
-while only blocking approximately:
-
-**0.20% of legitimate transactions.**
-
-
-## 10. Why PR-AUC?
-
-Fraud is highly imbalanced.
-
-The test fraud rate is approximately **3.48%**.
-
-In such a setting, accuracy can be misleading.
-
-For example, a classifier predicting every transaction as legitimate can achieve very high accuracy while detecting no fraud.
-
-Therefore the project emphasizes:
-
-- PR-AUC
-- ROC-AUC
-- Recall@K
-- Precision at operational thresholds
-- Legitimate intervention rate
-- Decision distribution
-
-These metrics better reflect the actual operating constraints of fraud detection.
-
-
-## 11. Real-Time Stateful Inference
-
-The offline feature-generation pipeline and online serving pipeline use the same behavioral logic.
-
-The real-time engine follows:
-
-```text
-Transaction
-    ↓
 Validate
-    ↓
-Read historical state
-    ↓
-Generate behavioral features
-    ↓
-Predict risk
-    ↓
-Apply decision policy
-    ↓
-Return response
-    ↓
-Update historical state
+   │
+   ▼
+Read historical state          (existing behavioral state for this card1, read-only)
+   │
+   ▼
+Generate behavioral features    (from that state, NOT the current transaction)
+   │
+   ▼
+Preprocess                       (frozen Phase 1 pipeline + Phase 4 preprocessor)
+   │
+   ▼
+Predict                            (LightGBM)
+   │
+   ▼
+Decision                             (frozen Phase 5 policy)
+   │
+   ▼
+Update state                          ← ONLY NOW, after prediction/decision are final
 ```
 
-The model bundle is loaded once at application startup.
+This ordering is the concrete anti-leakage mechanism: a transaction can
+never influence the very features used to score it, because state is
+read *before* any computation and written *after* the decision is already
+made. Verified by a dedicated offline/online parity test suite comparing
+the stateful engine's output against an independently-computed offline
+batch calculation across a 3,000-transaction chronological simulation
+(see [Key Results](#key-results) for the numbers, with the parity-dataset
+timing caveat noted there).
 
-The stateful risk engine is reused by the API rather than duplicating inference logic inside the HTTP layer.
+---
 
+## API
 
-## 12. Offline / Online Parity
+FastAPI service (`src/api/main.py`), 9 endpoints:
 
-A chronological real-time simulation was performed to verify that online behavioral feature generation agrees with offline feature computation.
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/predict` | POST | Score one transaction → risk score + decision |
+| `/health` | GET | Service/model/policy operational status |
+| `/metadata` | GET | Model type/version, policy thresholds, supported decisions |
+| `/metrics` | GET | Prometheus-text-format counters/gauges |
+| `/monitoring/summary` | GET | The same monitoring data as JSON |
+| `/drift/summary` | GET | Latest known drift status (read-only) |
+| `/drift/analyze` | POST | Run a new batch drift analysis |
+| `/model-governance/summary` | GET | Current champion + registry status (read-only) |
+| `/dev/reset-state` | POST | **Development-only** — clears in-memory behavioral state |
 
-On a 3,000-transaction chronological simulation:
+Interactive docs at `/docs` (Swagger UI) once the service is running.
 
-- **2,997 / 3,000** feature rows fully matched under the original strict comparison
-- Median feature difference: **0**
-- 99th-percentile feature difference: **7.4e-6**
-- Risk-score Pearson correlation: **0.999999996**
-- Risk-score MAE: approximately **1.5e-7**
-- Decision agreement: **3,000 / 3,000**
-
-These results were obtained before the later numerical-stability engineering fix and are retained as the historical parity validation result.
-
-
-## 13. FastAPI Serving
-
-The model is exposed through a FastAPI service.
-
-### Main endpoints
-
-```text
-GET  /health
-GET  /metadata
-GET  /metrics
-
-POST /predict
-
-GET  /monitoring/summary
-
-GET  /drift/summary
-POST /drift/analyze
-
-GET  /model-governance/summary
-
-POST /dev/reset-state
-```
-
-Interactive API documentation is available through FastAPI's `/docs` endpoint when the service is running.
-
-### Example
+**Real, executed example** (from this project's own Docker validation —
+see `reports/phase13_engineering_audit_summary.md`):
 
 ```bash
 curl -X POST http://localhost:8000/predict \
-     -H "Content-Type: application/json" \
-     -d @example_transaction.json
+  -H "Content-Type: application/json" \
+  -d '{"TransactionID": 9900001, "TransactionDT": 100000, "TransactionAmt": 55.0, "card1": 77777, "ProductCD": "W"}'
 ```
 
-
-## 14. Monitoring
-
-The serving layer includes application and model monitoring without modifying the underlying inference logic.
-
-Tracked signals include:
-
-### API health
-
-- Request counts
-- HTTP status codes
-- Latency
-- Prediction success/failure
-
-### Model behavior
-
-- Prediction counts
-- Decision distribution
-- Risk-score statistics
-- Risk-score buckets
-
-### Data quality
-
-- Validation failures
-- Missing/invalid inputs
-- Data-quality counters
-
-Metrics are exposed in a Prometheus-compatible text format through:
-
-```text
-/metrics
+```json
+{"transaction_id":9900001,"risk_score":0.05003272790754602,"decision":"APPROVE","model_version":"phase4_lightgbm_transaction_plus_behavioral_v1","policy_version":"balanced","processing_status":"success","processing_time_ms":155.47386999998025}
 ```
 
+---
 
-## 15. Drift Detection
+## Monitoring
 
-The system maintains a reference profile derived from the **validation partition**, keeping the final test set independent from drift-reference construction.
+Prometheus-style passive observability (Phase 9) — request counts,
+prediction success/failure, per-endpoint latency, decision distribution,
+risk-score statistics, and validation/data-quality error counts, all
+served from `GET /metrics` (text) and `GET /monitoring/summary` (JSON).
+It only *observes* — it never changes a risk score, decision, or
+behavioral state, verified by a dedicated non-interference test.
 
-Drift monitoring uses:
+**These numbers reflect demonstration and test-run traffic (tens of
+requests), not production-scale volume** — this project has never
+received real production traffic, and this README does not imply
+otherwise.
 
-### Primary
-
-**Population Stability Index (PSI)**
-
-### Complementary
-
-**Kolmogorov-Smirnov (KS) statistic**
-
-Monitored signals include:
-
-- `TransactionAmt`
-- `C1`
-- `C13`
-- `C14`
-- `D2`
-- `V258`
-- `ProductCD`
-- `R_emaildomain`
-- Behavioral features
-- Risk score
-- Decision distribution
-
-### PSI interpretation
-
-| PSI | Interpretation |
-|---:|---|
-| < 0.10 | No significant shift |
-| 0.10–0.20 | Low |
-| 0.20–0.30 | Moderate |
-| ≥ 0.30 | High |
-
-The implementation also handles:
-
-- Previously unseen categorical values
-- Rare-category grouping
-- `__OTHER__` buckets
-- Numeric distribution changes
-
-### Important interpretation
-
-Behavioral features naturally accumulate historical information.
-
-Therefore, chronological drift in variables such as historical transaction counts or historical mean amount does **not automatically imply a data-quality problem**.
-
-
-## 16. Model Governance
-
-The project includes a lightweight model-governance framework designed around controlled model promotion.
-
-Each candidate model is evaluated against multiple gates:
-
-```text
-Candidate Model
-      │
-      ▼
-Metric Availability
-      │
-      ▼
-Feature Schema Compatibility
-      │
-      ▼
-Candidate Quality
-      │
-      ▼
-Performance Degradation
-      │
-      ▼
-Operational Compatibility
-      │
-      ▼
-Decision Policy Compatibility
-      │
-      ▼
-PROMOTE / REVIEW / REJECT
+```bash
+curl http://localhost:8000/metrics
+curl http://localhost:8000/monitoring/summary
+python scripts/demo_monitoring.py   # end-to-end walkthrough with real predictions
 ```
 
-### Governance capabilities
+---
 
-- Model metadata
-- Model registry
-- Artifact SHA-256 verification
-- Feature-schema compatibility checks
-- Performance gates
-- Operational degradation gates
-- Decision-policy compatibility
-- Explicit promotion approval
-- Rollback support
+## Drift Detection
 
-Current champion:
+Passive, batch-only comparison of incoming data and model-output
+distributions against an approved historical reference (Phase 10) — PSI
+(Population Stability Index) as the primary measure, KS (Kolmogorov-
+Smirnov) as a complementary check, both on the **VALIDATION** partition
+as reference (never the untouched test set).
 
-```text
-Model: fraud-risk-lightgbm-v1
-Version: v1
-Status: CHAMPION
+**Monitored**: 6 numeric transaction features, 2 categorical features
+(with rare categories grouped into an `__OTHER__` bucket, and genuinely
+new/unseen categories always surfaced explicitly, never silently
+dropped), 4 behavioral features, plus the model's own risk-score and
+decision-distribution outputs.
+
+**Important methodological finding**: several behavioral features
+(`bhv_prev_txn_count`, `bhv_hist_mean_amt`, etc.) are *cumulative*
+counters that structurally grow over the dataset's timeline — an entity
+seen later in the chronological order has, by construction, more prior
+history than one seen earlier. A batch drawn from a later period can
+therefore show real, measurable PSI movement in these features **that
+reflects this structural design, not a data-quality problem.** Drift in a
+behavioral feature is not automatically evidence of a broken pipeline —
+see `reports/phase10_drift_detection_summary.md` for the concrete example
+this project found and investigated.
+
+```bash
+python -m src.run_phase10_build_reference   # build the reference profile (once)
+python scripts/demo_drift_monitoring.py      # 4 controlled scenarios, real + synthetic
+
+curl http://localhost:8000/drift/summary
+curl -X POST http://localhost:8000/drift/analyze -d '{"records": [...]}'
 ```
 
-Artifact SHA-256:
+---
+
+## Model Governance
+
+A lightweight local framework (Phase 11) for deciding whether a candidate
+model should replace the current champion — **not** an automated
+deployment system.
 
 ```text
-bb5de8767ebaffae90a8ca634380524e2002f67d38fb87528ea5911479686342
+Candidate → Evaluation → Promotion Gates → Recommendation (PROMOTE / REJECT / REQUIRES_REVIEW) → Explicit, human-approved Promotion
 ```
 
+The registry (`artifacts/models/registry.json`) tracks champion + candidate
+metadata: model type, evaluation metrics, feature-schema/policy version,
+and a **real SHA-256 hash** of the actual trained model artifact
+(`bb5de8767ebaffae90a8ca634380524e2002f67d38fb87528ea5911479686342`).
+Six explicit gates (metric availability, schema compatibility, minimum
+quality, degradation limits, operational/friction impact, policy
+compatibility) each return PASS/FAIL/REQUIRES_REVIEW with a stated
+explanation — never a black-box score. No candidate is ever promoted
+automatically: `promote()`/`rollback()` require an explicit
+`approved_by`/`reason`, and it's structurally impossible for Phase 10's
+drift detector or any API route to call them (verified by a test that
+parses every drift-module source file and confirms none import the
+governance module).
 
-## 17. Numerical Stability Engineering
+**Current real champion**: `fraud-risk-lightgbm-v1` — the actual approved
+model documented throughout this README.
 
-The stateful behavioral engine uses **Welford's online algorithm** for numerically stable running variance estimation.
+The governance *mechanism* was demonstrated end-to-end using two
+constructed candidates — a deliberately weaker one and a deliberately
+stronger one, both built by perturbing the champion's own real scores,
+never by training a second real model. **The "stronger" demonstration
+candidate's ≈0.8700 PR-AUC is a synthetic governance demonstration — not
+a production/model performance result** — it exists purely to exercise
+the promotion-gate code path and is not a claim about any real
+model's capability. Full detail, correctly labeled, in
+`reports/phase11_model_lifecycle_governance_summary.md`.
 
-A naive formulation based on:
-
-```text
-E[X²] - E[X]²
+```bash
+python -m src.run_phase11_register_champion   # register the real champion (once)
+curl http://localhost:8000/model-governance/summary   # read-only
 ```
 
-can suffer catastrophic cancellation for large-valued, tightly clustered observations.
+---
 
-The engineering audit exposed this failure mode and replaced the calculation with Welford's stable online update.
+## Production-Grade Infrastructure Upgrade
 
-For the adversarial numerical test:
+A subsequent upgrade extended the system toward a more production-style
+streaming architecture. **Every number below is a real measurement from
+this project's own development environment; every gap is stated
+honestly, not glossed over** — see `reports/production_readiness.md` for
+the full account.
 
 ```text
-NumPy ground-truth std:
-0.0009924527975957473
-
-Welford std:
-0.000992452792689105
-
-Absolute error:
-≈ 4.91 × 10⁻¹²
+Transaction Producer → Kafka → Fraud Processing Consumer → Redis-backed
+State → Behavioral Features → LightGBM → SHAP → APPROVE/REVIEW/BLOCK →
+FastAPI/Dashboard → Prometheus Monitoring → PSI/KS Drift → MLflow +
+Governance → Docker/Kubernetes → AWS-mapped deployment
 ```
 
-This was accompanied by a regression test to prevent recurrence.
+**Redis state store** — real, measured. A pluggable `StateBackend`
+interface (`InMemoryStateBackend`, default, unchanged; `RedisStateBackend`,
+new) keeps `BehavioralStateManager`'s feature math identical regardless of
+backend. Configured via `STATE_BACKEND=redis` / `REDIS_URL`. Real p50
+lookup latency: 0.0001ms (in-memory) vs. 0.0525ms (local Redis) — full
+table in `reports/streaming_benchmark.md`.
 
+**Kafka streaming** — implemented, honestly scoped. Real
+`TransactionProducer`/`TransactionConsumer` (using the actual
+`kafka-python` client), with retry, dead-letter routing, and a
+now-fixed idempotency gap (a duplicate transaction ID is detected and
+skipped, verified by a dedicated test). **No real Kafka broker could be
+provisioned in this project's development environment** (network egress
+restrictions block Apache/Confluent/Bitnami/Redpanda; no Ubuntu apt
+package provides a broker) — so Kafka throughput/latency is explicitly
+reported as **NOT MEASURED**, and the consumer's real processing logic is
+instead fully tested against an explicit, clearly-labeled `InMemoryBroker`
+test double. `docker-compose.kafka.yml` provides a real broker
+definition for use on a machine with normal Docker Hub access.
 
-## 18. Dockerized Deployment
+**SHAP explainability** — real, measured. A strictly additive
+`explain=True` engine parameter and a **separate** `/predict/explain`
+endpoint (the default `/predict` path is byte-for-byte unchanged) return
+the top contributing features for a decision, computed from the exact
+same feature matrix that produced the real score — verified to never
+alter risk_score/decision. Real measured latency: ~14-18ms p50 against
+the real champion model.
 
-The service can be packaged into a Docker image.
+**MLflow** — real experiment tracking (SQLite-backed) and model registry,
+logging the champion's real, already-computed metrics and hyperparameters
+— explicitly tagged `existing_champion_registration`, never presented as
+a new training run. Complements, never replaces, Phase 11's governance
+registry (`/model-governance/summary` now cross-references both).
 
-```text
-Dockerfile
-docker-compose.yml
-.dockerignore
-.env.example
+**Kubernetes** (`k8s/`) — authored and YAML-syntax-validated manifests
+(namespace, ConfigMap, Secret example, Deployments, Services). **Never
+applied to a real cluster** — none was available in this environment.
+
+**AWS deployment mapping** (design only, no resources created): Kafka →
+Amazon MSK, Redis → Amazon ElastiCache, containers → ECS/EKS via ECR,
+secrets → AWS Secrets Manager, monitoring → CloudWatch + Prometheus/
+Grafana. Documented as a mapping, not a claim of deployment.
+
+```bash
+# Local dev with real Kafka + Redis (on a machine with Docker Hub access):
+docker compose -f docker-compose.kafka.yml up -d
+STATE_BACKEND=redis KAFKA_BROKERS=localhost:9092 uvicorn src.api.main:app --reload
+
+curl -X POST http://localhost:8000/predict/explain -d '{...}'   # SHAP explanation
+python scripts/log_champion_to_mlflow.py                          # MLflow tracking
+python scripts/benchmark_redis_state.py                             # real Redis benchmark
+python scripts/benchmark_end_to_end.py                                # real latency benchmark
 ```
 
-The model bundle is included explicitly while the large raw dataset remains managed through Git LFS.
+---
 
-The Docker build was also used to expose and resolve dependency compatibility issues, including exact version pinning for the serving environment.
+## Dashboard
 
+A Streamlit dashboard (`dashboard/`, Phase 12) presenting the whole system
+end-to-end — **presentation layer only**, no inference/feature/drift/
+governance logic lives inside it; every page calls the real FastAPI
+service or the real `RiskDecisionEngine` directly, or reads real,
+already-computed artifacts.
 
-## 19. Streamlit Dashboard
+**Pages**: Executive Overview · Live Scoring · Analytics · Monitoring ·
+Drift · Governance · Architecture.
 
-A Streamlit dashboard provides a presentation layer over the underlying engine.
+No screenshots are included here — this environment doesn't support
+browser automation, and rather than fabricate images, this README points
+you to run it yourself (two commands, below) or to read the actual page
+source under `dashboard/pages/`.
 
-Pages include:
-
-```text
-Executive Overview
-Live Scoring
-Analytics
-Monitoring
-Drift
-Governance
-Architecture
+```bash
+uvicorn src.api.main:app --reload      # terminal 1 (optional but recommended)
+streamlit run dashboard/app.py          # terminal 2
 ```
 
-The dashboard intentionally avoids duplicating:
+---
 
-- Inference logic
-- Behavioral feature generation
-- Drift calculations
-- Governance decisions
+## Docker
 
-Instead, it consumes the same engine/API functionality used by the production path.
-
-
-## 20. Testing
-
-The repository contains an extensive automated test suite covering:
-
-- Data processing
-- Feature engineering
-- Model inference
-- Behavioral state
-- Online/offline parity
-- Decision policy
-- FastAPI endpoints
-- Monitoring
-- Drift detection
-- Governance
-- Dashboard
-- Docker configuration
-- Numerical stability
-
-Current test result:
-
-```text
-316 passed
+```bash
+docker build -t fraud-risk-api:local .
+docker run -d --name fraud-risk-api -p 8000:8000 fraud-risk-api:local
+docker inspect --format='{{.State.Health.Status}}' fraud-risk-api
+curl http://localhost:8000/health
 ```
 
-The project also includes CI configuration for automated testing.
+The image copies only `src/`, `config/`, `scripts/`, the trained model
+bundle, and the small drift/governance artifacts — **the raw ~1.3GB
+dataset is explicitly excluded** (`.dockerignore`), keeping the build
+context small (~4.29MB, as measured in Phase 8). Behavioral state is
+in-memory only and resets on container restart — no persistent storage in
+this phase, documented plainly rather than glossed over. This is a local
+containerized deployment for development/demonstration, **not a cloud or
+production deployment**.
 
+---
 
-## 21. Repository Structure
+## Testing & CI
+
+**357 automated tests passing, 1 skipped, 0 failures** (latest local
+`pytest -q` run — 316 from the original 14 phases plus 41 from the
+production-upgrade phase: Redis backend, streaming, SHAP, MLflow, and
+failure-scenario tests; the 1 skip is a real-Kafka-broker test,
+correctly skipped since no broker exists in this environment) across
+data validation, leakage guards, feature correctness, model training,
+decision policy, the real-time engine, the API, monitoring, drift
+detection, governance, the dashboard, and the production-upgrade
+components. A GitHub Actions workflow (`.github/workflows/tests.yml`,
+added in Phase 13) runs the full suite on every push — verified to
+require only what's committed to the repository, not the raw dataset
+(the Redis/MLflow tests require those real local services to run, and
+are written to be skipped or self-contained accordingly).
+
+Phase 13 also found and fixed a real numerical-stability bug: the
+real-time engine's online variance formula could produce a **negative
+variance → `NaN` standard deviation** for real-shaped, high-volume,
+low-variance entities (a catastrophic-cancellation failure mode). Fixed
+with Welford's online algorithm; a dedicated regression test confirms the
+fix's accuracy against `numpy`'s ground truth to within `~5e-12`, versus
+the old formula's outright failure on the same adversarial input. Full
+detail in `reports/phase13_engineering_audit_summary.md`. The
+production-upgrade phase found and fixed two more real bugs: a duplicate-
+message idempotency gap in the streaming consumer, and a missing clean
+error handler for Redis outages — both documented with real, executed
+tests in `reports/failure_testing.md`.
+
+This is not a claim of 100% code coverage — it's an honest count of what
+actually passes, today, in this repository.
+
+---
+
+## Project Structure
 
 ```text
-real-time-risk-fraud-engine/
-│
+fraud-risk-engine/
+├── config/                 # run configuration, frozen decision policy
 ├── data/
-│   └── raw/
-│       ├── train_transaction.csv
-│       ├── train_identity.csv
-│       ├── test_transaction.csv
-│       ├── test_identity.csv
-│       └── sample_submission.csv
-│
+│   ├── raw/                # untouched source CSVs (not committed)
+│   └── interim/            # trained model bundle, saved evaluation metrics
+├── artifacts/               # drift reference profile, model governance registry
 ├── src/
-│   ├── engine/
-│   ├── features/
-│   ├── models/
-│   ├── monitoring/
-│   ├── drift/
-│   ├── governance/
-│   └── ...
-│
-├── dashboard/
-│
-├── tests/
-│
-├── reports/
-│
-├── configs/
-│
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-├── environment.yml
-├── .gitattributes
-├── .gitignore
-└── README.md
+│   ├── data/                 # loading, inspection, chronological splitting
+│   ├── features/               # leakage-safe pipeline + behavioral features
+│   ├── models/                  # Logistic Regression, LightGBM, Isolation Forest
+│   ├── decision/                  # decision policy + threshold selection
+│   ├── engine/                     # real-time RiskDecisionEngine + state manager
+│   ├── api/                         # FastAPI service
+│   ├── monitoring/                   # observability
+│   ├── drift/                         # PSI/KS drift detection
+│   └── governance/                     # model lifecycle governance
+├── dashboard/                # Streamlit dashboard (presentation layer only)
+├── tests/                    # 316 automated tests
+├── scripts/                  # demonstration and utility scripts
+├── reports/                  # every phase's full write-up + real validation logs
+└── .github/workflows/        # CI (test suite on every push)
 ```
 
+---
 
-## 22. Reproducibility
-
-The project separates:
-
-```text
-Raw Data
-   ↓
-Feature Engineering
-   ↓
-Training
-   ↓
-Validation
-   ↓
-Model Artifact
-   ↓
-Serving
-   ↓
-Monitoring
-```
-
-The final test partition remains isolated from model-selection decisions.
-
-Model artifacts are versioned and protected through SHA-256 verification.
-
-
-## 23. Engineering Principles
-
-The project was designed around several principles:
-
-### 1. Prevent leakage before optimizing the model
-
-Temporal correctness is more important than squeezing out another fraction of a validation point.
-
-### 2. Optimize for the operating environment
-
-Fraud detection is constrained by review capacity and false-positive costs.
-
-### 3. Separate scoring from decisioning
-
-A risk score and an operational action are different concepts.
-
-### 4. Keep online and offline logic consistent
-
-Production feature computation should reproduce the behavior validated offline.
-
-### 5. Monitor the system after deployment
-
-A model can degrade even when its code has not changed.
-
-### 6. Govern model changes
-
-A new model should not automatically replace the existing champion.
-
-### 7. Treat numerical stability as a production concern
-
-Correct mathematical formulas are not always sufficient for reliable floating-point computation.
-
-
-## 24. Limitations
-
-This project intentionally documents several limitations.
-
-### Pseudo-entity identity
-
-`card1` is used as a pseudo-entity for behavioral aggregation. It is not a verified customer identifier.
-
-### Historical dataset
-
-The system is validated using historical Kaggle data rather than a live production transaction stream.
-
-### Authentication
-
-The current FastAPI service does not implement production-grade authentication/authorization.
-
-### Behavioral drift
-
-Cumulative behavioral variables naturally evolve over chronological time and therefore require contextual interpretation when drift is detected.
-
-### Production infrastructure
-
-The project demonstrates production-oriented ML engineering patterns but is not intended to represent a complete enterprise fraud platform with distributed state stores, message queues, feature stores, or multi-region deployment.
-
-
-## 25. Why This Project Is Different
-
-Many fraud-detection projects stop at:
-
-```text
-Dataset → Model → Accuracy
-```
-
-This project extends the problem into a complete decision system:
-
-```text
-                    ┌─────────────────┐
-                    │ Fraud Modeling  │
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │   Behavioral    │
-                    │   Intelligence  │
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │ Risk Decisioning│
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │ Real-Time API   │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-          Monitoring       Drift        Governance
-              │              │              │
-              └──────────────┼──────────────┘
-                             ▼
-                       Production Loop
-```
-
-The emphasis is therefore not only on **model performance**, but on:
-
-**ML + feature engineering + state + serving + monitoring + drift + governance + reliability.**
-
-
-## 26. Tech Stack
-
-### Machine Learning
-
-- Python
-- LightGBM
-- Scikit-learn
-- NumPy
-- Pandas
-
-### API / Serving
-
-- FastAPI
-- Uvicorn
-- Pydantic
-
-### Monitoring
-
-- Prometheus-compatible metrics
-- Structured logging
-- Data-quality monitoring
-
-### Drift
-
-- PSI
-- KS statistics
-
-### Dashboard
-
-- Streamlit
-
-### Engineering
-
-- Docker
-- Git
-- Git LFS
-- GitHub Actions
-- Pytest
-
-
-## 27. Running Locally
-
-Clone the repository:
+## Reproducibility / Quick Start
 
 ```bash
-git clone https://github.com/DebadattaLiku/real-time-risk-fraud-engine.git
-cd real-time-risk-fraud-engine
+git clone <this-repo>
+cd fraud-risk-engine
+
+pip install -r requirements.txt   # exact pinned versions
+
+pytest -q                          # 316 tests — no raw dataset required
+
+uvicorn src.api.main:app --reload   # start the API (terminal 1)
+streamlit run dashboard/app.py       # start the dashboard (terminal 2)
 ```
 
-Create and activate a virtual environment:
+The trained model bundle, evaluation metrics, drift reference profile,
+and governance registry are all committed (small, a few MB total) —
+running the tests, API, or dashboard needs nothing beyond the two
+commands above. **Only re-running the full Phase 0-6 pipeline from
+scratch** (to retrain from raw data) requires downloading the Kaggle
+dataset yourself into `data/raw/` (see [Dataset](#dataset)).
 
-```bash
-python -m venv .venv
-```
+---
 
-Windows:
+## Engineering Decisions
 
-```bash
-.venv\Scripts\activate
-```
+| Decision | Why |
+|---|---|
+| Chronological split (never random) | Prevents temporal leakage; approximates real deployment conditions |
+| PR-AUC as the primary ranking metric | ROC-AUC is misleadingly optimistic under 3.5% fraud prevalence |
+| LightGBM as the champion model | Strong, well-established performance on structured/tabular data with mixed feature types |
+| Behavioral features (`card1` pseudo-entity) | Captures historical transaction patterns a single transaction alone can't show |
+| Isolation Forest evaluated and rejected | Measured, not assumed, to add negligible complementary fraud value |
+| Three-way APPROVE/REVIEW/BLOCK policy | Connects a continuous risk score to a real operational action, with a human-review path |
+| Stateful real-time engine (predict-then-update) | Structurally prevents a transaction from leaking into its own features |
+| PSI + KS drift detection | Two different, complementary lenses on distributional change |
+| Explicit, human-gated governance promotion | Prevents any code path — automated or accidental — from silently swapping the production model |
+| Local JSON registry, not a full MLOps platform | Proportionate to this project's actual scale; documented as a lightweight, not enterprise, tool |
 
-Install dependencies:
+---
 
-```bash
-pip install -r requirements.txt
-```
+## Limitations & Responsible Interpretation
 
-Run the API:
+- **Anonymized historical dataset, not live production traffic.** Every
+  result in this README comes from chronological backtesting on a static,
+  already-labeled Kaggle dataset — the system has never scored real,
+  live transactions.
+- **`card1` is a pseudo-entity, not a verified customer identity** — see
+  [Dataset](#dataset).
+- **58.1% of all test-set fraud is still approved**, not caught by
+  REVIEW/BLOCK — a real, stated limitation of the current policy, not
+  hidden behind the strong blocked-precision number.
+- **No ground-truth-based online accuracy monitoring.** Drift detection
+  compares distributions, not true fraud outcomes (which aren't available
+  at prediction time) — it cannot by itself confirm the model is "still
+  accurate."
+- **Monitoring and drift numbers reflect demo/test-scale traffic**, not
+  production volume.
+- **The dashboard is a demonstration/presentation interface**, not a
+  production operations console, and has no authentication.
+- **The governance ≈0.8700 PR-AUC candidate is a synthetic
+  demonstration** — see [Model Governance](#model-governance). It is not,
+  and must never be read as, a real model result.
+- **No authentication anywhere in the service.** Every endpoint is
+  reachable by anyone who can reach the process — acceptable for a local
+  portfolio system, a real gap for any public deployment.
+- **Offline/online parity figures predate a later numerical-stability
+  fix** — see [Key Results](#key-results).
 
-```bash
-uvicorn src.api.main:app --host 0.0.0.0 --port 8000
-```
+---
 
-Open:
+## Phase / Research Log
 
-```text
-http://localhost:8000/docs
-```
+| Phase | Focus | Report |
+|---|---|---|
+| 0 | Leakage-aware EDA | `reports/phase0_eda_summary.md` |
+| 1 | Chronological split, leakage-safe pipeline | `reports/phase1_pipeline_summary.md` |
+| 2A | Logistic Regression baseline | `reports/phase2a_logistic_regression_summary.md` |
+| 2B | LightGBM champion | `reports/phase2b_lightgbm_summary.md` |
+| 3 | Isolation Forest complementarity (rejected) | `reports/phase3_anomaly_detection_summary.md` |
+| 4 | Behavioral intelligence features | `reports/phase4_behavioral_features_summary.md` |
+| 5 | Decision policy | `reports/phase5_decision_policy_summary.md` |
+| 6 | Stateful real-time engine | `reports/phase6_realtime_engine_summary.md` |
+| 7 | FastAPI service | `reports/phase7_api_service_summary.md` |
+| 8 | Docker containerization | `reports/phase8_containerization_summary.md` |
+| 9 | Monitoring & observability | `reports/phase9_monitoring_observability_summary.md` |
+| 10 | Drift detection | `reports/phase10_drift_detection_summary.md` |
+| 11 | Model lifecycle governance | `reports/phase11_model_lifecycle_governance_summary.md` |
+| 12 | Streamlit dashboard | `reports/phase12_dashboard_summary.md` |
+| 13 | Engineering/reproducibility audit | `reports/phase13_engineering_audit_summary.md` |
+| 14 | Portfolio documentation | `reports/phase14_documentation_plan.md` (this README) |
 
-Run tests:
+---
 
-```bash
-pytest -q
-```
+## Principles this project follows
 
-Run the Streamlit dashboard using the project's dashboard entry point.
-
-
-## 28. Future Improvements
-
-Potential extensions include:
-
-- Redis/Kafka-backed distributed state
-- Feature-store integration
-- Model calibration
-- Cost-sensitive threshold optimization
-- Champion/challenger experimentation
-- Authentication and authorization
-- API rate limiting
-- Automated retraining pipelines
-- Cloud deployment
-- Real-time event streaming
-- Explainable fraud decisions
-- SHAP-based investigation workflows
-- Automated drift-triggered retraining
-- Distributed observability
-- Online model experimentation
-
-
-## 29. Author
-
-**Debadatta Panda**  
-MTech — Industrial Mathematics & Scientific Computing  
-Indian Institute of Technology Madras
-
-This project was developed as a production-oriented machine-learning engineering portfolio project, with emphasis on **fraud detection, real-time decision systems, MLOps, model governance, and reliable ML serving**.
-
-
-## License & Dataset Notice
-
-The source code of this repository is provided for educational and portfolio purposes.
-
-The IEEE-CIS Fraud Detection dataset is subject to the competition's own terms and conditions. Users obtaining or using the dataset should review and comply with the applicable Kaggle competition rules and dataset terms.
+- No random shuffling for train/val/test splits — strictly time-ordered.
+- No behavioral/aggregate feature is computed using information from
+  transactions that occur after the transaction being scored.
+- No preprocessing object (scaler, encoder, imputer) is fit on anything but
+  the training partition.
+- No modeling decision is informed by the test partition.
+- Any claim that the hybrid system outperforms a baseline must be backed by
+  same-split, same-protocol, reproducible experiments — not asserted in advance.

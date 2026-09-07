@@ -1,0 +1,47 @@
+# Local/dev-topology Redis, referenced by configmap.yaml's REDIS_URL.
+# For a real deployment, this would be replaced entirely by Amazon
+# ElastiCache (or equivalent managed service) — see k8s/README.md and the
+# main README's AWS mapping. This manifest exists so the local topology is
+# internally consistent and documented, not because a managed-service
+# alternative wasn't considered.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: fraud-risk-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: fraud-risk-engine
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP

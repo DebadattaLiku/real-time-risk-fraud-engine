@@ -45,4 +45,13 @@ responses==0.26.3
 redis==8.1.0
 kafka-python==3.0.11
 shap==0.52.0
-mlflow==3.16.0
+
+# NOTE: mlflow is deliberately EXCLUDED from the Docker image.
+# /model-governance/summary already handles its absence gracefully (a
+# try/except around the import in src/api/main.py — see that code and
+# reports/production_readiness.md for why: mlflow's dependency tree
+# (pyarrow, numba/llvmlite, sqlalchemy, alembic, cryptography, graphene,
+# flask, gunicorn, databricks-sdk, ~500MB+ combined) is real overhead for
+# a feature that is a local experiment-tracking convenience, not part of
+# the live prediction path. Install it separately (`pip install mlflow`)
+# for local development / running scripts/log_champion_to_mlflow.py.

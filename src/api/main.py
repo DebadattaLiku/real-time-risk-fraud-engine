@@ -32,6 +32,7 @@ from src.api.schemas import (
 )
 from src.decision.policy import DECISIONS
 from src.engine.risk_engine import RiskDecisionEngine, TransactionValidationError
+from src.engine.state_backend import StateBackendUnavailableError
 from src.monitoring.metrics import MetricsRegistry
 from src.monitoring.middleware import MetricsMiddleware
 from src.monitoring.prometheus_export import render_prometheus_text
@@ -145,6 +146,30 @@ async def handle_runtime_error(request: Request, exc: RuntimeError) -> JSONRespo
     return JSONResponse(status_code=503, content={"error": "engine_not_initialized", "detail": str(exc)})
 
 
+@app.exception_handler(StateBackendUnavailableError)
+async def handle_state_backend_unavailable(request: Request, exc: StateBackendUnavailableError) -> JSONResponse:
+    """
+    Production upgrade — a real gap found and fixed during Phase 12
+    failure testing (see reports/failure_testing.md's "Redis failure"
+    section). `StateBackendUnavailableError` IS a `RuntimeError`
+    subclass, so without this dedicated handler it would still resolve
+    to SOME response (Starlette's exception dispatch walks the MRO), but
+    it would be indistinguishable from "engine not initialized" in the
+    response body/metrics — this handler gives it its own clear error
+    code and its own metrics counter, matching the pattern already
+    established for every other error category in this file. Registering
+    a handler for a subclass makes it MORE specific than the existing
+    bare `RuntimeError` handler above, so Starlette dispatches here first
+    for this exact exception type — the existing handler's behavior for
+    genuine engine-not-initialized errors is completely unaffected.
+    """
+    try:
+        deps.get_metrics_registry().record_redis_lookup(duration_ms=0.0, failed=True)
+    except RuntimeError:
+        pass
+    return JSONResponse(status_code=503, content={"error": "state_backend_unavailable", "detail": str(exc)})
+
+
 @app.exception_handler(Exception)
 async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
     """
@@ -212,6 +237,61 @@ def predict(request: TransactionRequest, engine: RiskDecisionEngine = Depends(de
         processing_status="success",
         processing_time_ms=result["processing_metadata"]["processing_time_ms"],
     )
+
+
+@app.post(
+    "/predict/explain", tags=["prediction"],
+    summary="Score one transaction AND return a SHAP-based explanation (presentation-only).",
+    description=(
+        "Production upgrade. Identical inference/decision path to "
+        "/predict — the SAME RiskDecisionEngine.process_transaction() "
+        "call, the SAME model, the SAME frozen policy — with one addition: "
+        "a SHAP TreeExplainer breakdown of the top contributing features, "
+        "computed strictly AFTER risk_score/decision are already final. "
+        "The explanation can never change the score or decision (verified "
+        "by a dedicated test — see tests/test_production_shap.py). This is "
+        "a SEPARATE endpoint from /predict specifically so the default, "
+        "high-frequency prediction path never pays the SHAP computation "
+        "cost — see reports/streaming_benchmark.md for real measured "
+        "explanation latency. Returns 503 if SHAP was not configured for "
+        "this running instance (ENABLE_SHAP_EXPLAINABILITY=false)."
+    ),
+)
+def predict_explain(request: TransactionRequest, engine: RiskDecisionEngine = Depends(deps.get_engine)) -> dict:
+    log_request_received(endpoint="/predict/explain", method="POST")
+    metrics = deps.get_metrics_registry_or_none()
+    if metrics is not None:
+        metrics.record_prediction_attempt()
+
+    transaction = deps.build_full_transaction_dict(engine, request)
+    result = engine.process_transaction(transaction, explain=True)
+
+    if metrics is not None:
+        metrics.record_prediction_success(
+            decision=result["decision"],
+            risk_score=result["risk_score"],
+            duration_ms=result["processing_metadata"]["processing_time_ms"],
+            transaction_amount=extract_transaction_amount(transaction),
+        )
+        explanation_ms = (result.get("explanation") or {}).get("explanation_time_ms")
+        if explanation_ms is not None:
+            metrics.record_explanation(duration_ms=explanation_ms)
+    log_prediction_processed(
+        transaction_id=result["transaction_id"], decision=result["decision"],
+        risk_score=result["risk_score"], duration_ms=result["processing_metadata"]["processing_time_ms"],
+    )
+
+    if result["explanation"] is not None and "error" in result["explanation"]:
+        raise HTTPException(status_code=503, detail=result["explanation"]["error"])
+
+    return {
+        "transaction_id": result["transaction_id"],
+        "risk_score": result["risk_score"],
+        "decision": result["decision"],
+        "model_version": deps.MODEL_VERSION,
+        "policy_version": result["processing_metadata"]["policy_name"],
+        "explanation": result["explanation"],
+    }
 
 
 @app.get(
@@ -360,4 +440,18 @@ def model_governance_summary() -> dict:
     registry = deps.get_model_registry_or_none()
     if registry is None:
         return {"available": False, "detail": "No model governance registry is loaded."}
-    return {"available": True, **registry.summary()}
+    summary = {"available": True, **registry.summary()}
+
+    # Production upgrade — best-effort MLflow cross-reference (additive
+    # only; never raises, never blocks this endpoint if MLflow hasn't
+    # been used yet). The existing governance registry above remains the
+    # sole AUTHORITATIVE source for champion/promotion status — see
+    # src/mlops/mlflow_tracking.py's module docstring.
+    try:
+        from src.mlops.mlflow_tracking import get_champion_run_summary
+        mlflow_summary = get_champion_run_summary()
+        summary["mlflow"] = mlflow_summary if mlflow_summary is not None else {"available": False}
+    except Exception:
+        summary["mlflow"] = {"available": False}
+
+    return summary

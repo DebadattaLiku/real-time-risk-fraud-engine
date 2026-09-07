@@ -190,7 +190,7 @@ def main() -> int:
     state_manager = BehavioralStateManager(entity_col=entity_col)
     state_manager.bulk_initialize(historical, time_col=time_col, amount_col="TransactionAmt",
                                    as_of_time=float(historical[time_col].max()))
-    print(f"  Warm-started state for {len(state_manager._states)} entities from {len(historical)} historical transactions")
+    print(f"  Warm-started state for {state_manager.entity_count} entities from {len(historical)} historical transactions")
     del historical
     gc.collect()
 

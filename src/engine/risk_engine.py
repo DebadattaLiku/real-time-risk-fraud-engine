@@ -58,6 +58,7 @@ class RiskDecisionEngine:
         time_col: str = "TransactionDT",
         id_col: str = "TransactionID",
         amount_col: str = "TransactionAmt",
+        explainer=None,
     ):
         self.schema = schema
         self.feature_pipeline = feature_pipeline
@@ -69,6 +70,12 @@ class RiskDecisionEngine:
         self.time_col = time_col
         self.id_col = id_col
         self.amount_col = amount_col
+        # Production upgrade — optional, presentation-only (see
+        # src/explainability/shap_explainer.py's module docstring for why
+        # this can never affect risk_score/decision). None by default —
+        # every existing caller/test that doesn't pass `explainer=` or
+        # `explain=True` sees byte-for-byte identical behavior to before.
+        self.explainer = explainer
 
         # Every raw column FeaturePipeline expects to find, PLUS the
         # identifier/time columns it explicitly excludes but this engine
@@ -125,7 +132,7 @@ class RiskDecisionEngine:
             if numeric_field == self.amount_col and value < 0:
                 raise TransactionValidationError(f"'{self.amount_col}' cannot be negative, got {value}")
 
-    def process_transaction(self, transaction: dict) -> dict:
+    def process_transaction(self, transaction: dict, explain: bool = False) -> dict:
         t0 = _time.perf_counter()
 
         # STEP 2: validate.
@@ -176,12 +183,25 @@ class RiskDecisionEngine:
         # STEP 8: apply frozen decision policy.
         decision = str(self.policy.decide([risk_score])[0])
 
+        # PRESENTATION-ONLY: computed strictly AFTER risk_score/decision
+        # are already final, from the exact Z_full that produced them —
+        # see src/explainability/shap_explainer.py's module docstring.
+        explanation = None
+        if explain:
+            if self.explainer is None:
+                explanation = {"error": "No explainer configured for this engine instance."}
+            else:
+                explain_t0 = _time.perf_counter()
+                explanation = self.explainer.explain(Z_full)
+                explanation["explanation_time_ms"] = (_time.perf_counter() - explain_t0) * 1000
+
         # STEP 9: package result (state not yet updated).
         elapsed_ms = (_time.perf_counter() - t0) * 1000
         result = {
             "transaction_id": transaction_id,
             "risk_score": risk_score,
             "decision": decision,
+            "explanation": explanation,
             "behavioral_features": behavioral_features,
             "state_updated": False,
             "processing_metadata": {

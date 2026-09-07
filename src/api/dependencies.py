@@ -17,6 +17,7 @@ never has to pay the cost of loading the real ~600MB dataset.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -30,7 +31,8 @@ import yaml
 from src.data.load import load_train_transaction, load_config
 from src.data.split import compute_temporal_split
 from src.decision.policy import DecisionPolicy
-from src.engine.state import BehavioralStateManager
+from src.engine.state import BehavioralStateManager, EntityState
+from src.engine.state_backend import InMemoryStateBackend, RedisStateBackend
 from src.engine.risk_engine import RiskDecisionEngine
 from src.run_phase6_simulation import build_or_load_bundle
 from src.monitoring.metrics import MetricsRegistry
@@ -48,6 +50,45 @@ _policy_config: dict | None = None
 _metrics_registry: MetricsRegistry | None = None
 _drift_monitor: DriftMonitor | None = None
 _model_registry: ModelRegistry | None = None
+
+
+def build_state_backend():
+    """
+    Production upgrade — configurable state backend.
+
+    `STATE_BACKEND` env var: `"memory"` (default — today's exact,
+    unchanged, in-process, non-persistent behavior) or `"redis"` (real
+    Redis-backed persistence, surviving process restarts and shareable
+    across processes — see `src/engine/state_backend.py`). `REDIS_URL`
+    (default `redis://localhost:6379/0`) configures the connection when
+    `STATE_BACKEND=redis`. No credentials are hard-coded anywhere — the
+    URL (including any embedded credentials) comes only from the
+    environment.
+
+    Fails LOUDLY (raises `RuntimeError`) if `STATE_BACKEND=redis` is
+    configured but Redis cannot be reached at startup — this deliberately
+    does NOT silently fall back to in-memory, because a silent fallback
+    would hide a real deployment misconfiguration (the operator asked for
+    persistent, shared state and would otherwise get process-local state
+    with no warning).
+    """
+    backend_kind = os.environ.get("STATE_BACKEND", "memory").strip().lower()
+    if backend_kind == "memory":
+        return InMemoryStateBackend()
+    if backend_kind == "redis":
+        import redis
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        client = redis.Redis.from_url(redis_url, socket_connect_timeout=3)
+        try:
+            client.ping()
+        except redis.exceptions.RedisError as e:
+            raise RuntimeError(
+                f"STATE_BACKEND=redis but Redis is not reachable at the configured "
+                f"REDIS_URL: {e}. Set STATE_BACKEND=memory to use the in-memory "
+                f"backend instead, or fix the Redis connection."
+            ) from e
+        return RedisStateBackend(client, EntityState, key_prefix="fraud:state:")
+    raise RuntimeError(f"Unknown STATE_BACKEND={backend_kind!r} — expected 'memory' or 'redis'.")
 
 
 def build_engine(warm_start: bool = True) -> tuple[RiskDecisionEngine, dict]:
@@ -76,7 +117,7 @@ def build_engine(warm_start: bool = True) -> tuple[RiskDecisionEngine, dict]:
         name=policy_config["policy_name"],
     )
 
-    state_manager = BehavioralStateManager(entity_col="card1")
+    state_manager = BehavioralStateManager(entity_col="card1", backend=build_state_backend())
     if warm_start:
         id_col, time_col = "TransactionID", "TransactionDT"
         df, _ = load_train_transaction(config=config)
@@ -95,6 +136,23 @@ def build_engine(warm_start: bool = True) -> tuple[RiskDecisionEngine, dict]:
         schema=schema, feature_pipeline=fp, lgbm_preprocessor=lgbm_pre, model=model,
         policy=policy, state_manager=state_manager,
     )
+
+    # Production upgrade — optional SHAP explainability (presentation-only,
+    # see src/explainability/shap_explainer.py). ENABLE_SHAP_EXPLAINABILITY
+    # (default "true") lets an operator disable it entirely (e.g. to skip
+    # the one-time TreeExplainer construction cost at startup) without
+    # touching any other configuration. When disabled or unavailable,
+    # engine.explainer stays None and /predict/explain reports a clear
+    # 503 rather than crashing (see src/api/main.py).
+    if os.environ.get("ENABLE_SHAP_EXPLAINABILITY", "true").strip().lower() not in ("0", "false", "no"):
+        try:
+            from src.explainability.shap_explainer import FraudExplainer
+            engine.explainer = FraudExplainer(model, top_k=5)
+        except Exception as e:  # noqa: BLE001 — SHAP is optional; its absence must never block API startup
+            import logging
+            logging.getLogger("fraud_api").warning(f"event=shap_explainer_unavailable error={e!r}")
+            engine.explainer = None
+
     return engine, policy_config
 
 

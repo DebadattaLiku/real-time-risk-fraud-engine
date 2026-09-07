@@ -86,6 +86,21 @@ class MetricsRegistry:
         self.transaction_amount_min = None
         self.transaction_amount_max = None
 
+        # --- Production upgrade: SHAP explanation / Redis / streaming ---
+        # Additive only — none of the metrics above were touched or
+        # renamed, so every existing snapshot consumer keeps working
+        # unchanged; these appear under a new top-level "extensions" key
+        # in snapshot() (see below).
+        self._explanation_latency_sum_ms = 0.0
+        self._explanation_latency_count = 0
+        self.redis_lookup_count = 0
+        self.redis_lookup_failures = 0
+        self._redis_lookup_latency_sum_ms = 0.0
+        self.streaming_messages_processed = 0
+        self.streaming_messages_failed = 0
+        self.streaming_messages_dead_lettered = 0
+        self.model_load_time_ms: float | None = None
+
     # ------------------------------------------------------------------
     # Recording methods
     # ------------------------------------------------------------------
@@ -146,6 +161,34 @@ class MetricsRegistry:
     def record_internal_error(self) -> None:
         with self._lock:
             self.internal_errors += 1
+
+    # --- Production upgrade recording methods -------------------------
+
+    def record_explanation(self, duration_ms: float) -> None:
+        with self._lock:
+            self._explanation_latency_sum_ms += duration_ms
+            self._explanation_latency_count += 1
+
+    def record_redis_lookup(self, duration_ms: float, failed: bool = False) -> None:
+        with self._lock:
+            self.redis_lookup_count += 1
+            self._redis_lookup_latency_sum_ms += duration_ms
+            if failed:
+                self.redis_lookup_failures += 1
+
+    def record_streaming_message(self, status: str) -> None:
+        """`status` is one of 'processed', 'failed', 'dead_lettered'."""
+        with self._lock:
+            if status == "processed":
+                self.streaming_messages_processed += 1
+            elif status == "failed":
+                self.streaming_messages_failed += 1
+            elif status == "dead_lettered":
+                self.streaming_messages_dead_lettered += 1
+
+    def record_model_load_time(self, duration_ms: float) -> None:
+        with self._lock:
+            self.model_load_time_ms = duration_ms
 
     # ------------------------------------------------------------------
     # Snapshot
@@ -215,5 +258,28 @@ class MetricsRegistry:
                     "engine_validation_failures": self.engine_validation_failures,
                     "engine_not_initialized_errors": self.engine_not_initialized_errors,
                     "internal_errors": self.internal_errors,
+                },
+                "extensions": {
+                    "shap": {
+                        "explanations_computed": self._explanation_latency_count,
+                        "avg_latency_ms": (
+                            self._explanation_latency_sum_ms / self._explanation_latency_count
+                            if self._explanation_latency_count else None
+                        ),
+                    },
+                    "redis": {
+                        "lookup_count": self.redis_lookup_count,
+                        "lookup_failures": self.redis_lookup_failures,
+                        "avg_lookup_latency_ms": (
+                            self._redis_lookup_latency_sum_ms / self.redis_lookup_count
+                            if self.redis_lookup_count else None
+                        ),
+                    },
+                    "streaming": {
+                        "messages_processed": self.streaming_messages_processed,
+                        "messages_failed": self.streaming_messages_failed,
+                        "messages_dead_lettered": self.streaming_messages_dead_lettered,
+                    },
+                    "model_load_time_ms": self.model_load_time_ms,
                 },
             }

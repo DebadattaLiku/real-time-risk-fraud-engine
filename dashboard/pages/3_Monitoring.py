@@ -149,6 +149,39 @@ if amt["count"] > 0:
 
 st.divider()
 
+# ---------------------------------------------------------------------------
+# Production upgrade — SHAP / Redis / streaming extensions (additive).
+# Read directly from the same real /monitoring/summary response — no
+# separate call, no duplicated aggregation logic.
+# ---------------------------------------------------------------------------
+ext = summary.get("extensions")
+if ext:
+    st.markdown("### Production Upgrade Metrics")
+    st.caption(
+        "SHAP explanation, Redis state-store, and streaming-consumer counters — "
+        "all real, in-memory, reset on restart, exactly like every other counter above."
+    )
+    e1, e2, e3 = st.columns(3)
+    shap_ext = ext.get("shap", {})
+    e1.metric("SHAP explanations computed", shap_ext.get("explanations_computed", 0))
+    if shap_ext.get("avg_latency_ms") is not None:
+        e1.caption(f"avg latency: {shap_ext['avg_latency_ms']:.2f}ms")
+    redis_ext = ext.get("redis", {})
+    e2.metric("Redis lookups", redis_ext.get("lookup_count", 0))
+    if redis_ext.get("lookup_failures", 0) > 0:
+        e2.caption(f":red[{redis_ext['lookup_failures']} failures]")
+    streaming_ext = ext.get("streaming", {})
+    e3.metric("Streaming messages processed", streaming_ext.get("messages_processed", 0))
+    if streaming_ext.get("messages_dead_lettered", 0) > 0:
+        e3.caption(f":orange[{streaming_ext['messages_dead_lettered']} dead-lettered]")
+    st.caption(
+        "Streaming counters will read 0 unless a real Kafka consumer has been run against "
+        "this process — see reports/streaming_benchmark.md for why no real Kafka broker "
+        "was available to generate live traffic here."
+    )
+
+st.divider()
+
 with st.expander("Raw Prometheus-format /metrics (excerpt)"):
     ok, text = api_client.get_metrics_text(base_url)
     if ok:

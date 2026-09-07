@@ -82,6 +82,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from src.engine.state_backend import StateBackend, InMemoryStateBackend
+
 VELOCITY_WINDOWS_SECONDS = {"1h": 3600, "24h": 86400}
 _MAX_WINDOW_SECONDS = max(VELOCITY_WINDOWS_SECONDS.values())
 
@@ -125,28 +127,47 @@ class BehavioralStateManager:
     """
     Online counterpart to `src/features/behavioral.py`. One instance holds
     state for every `card1` entity seen so far.
+
+    `backend` (production upgrade, optional, defaults to
+    `InMemoryStateBackend()`): where entity state is actually stored.
+    Every method below is UNCHANGED in behavior regardless of backend —
+    this class owns the feature-computation math; `src/engine/state_backend.py`
+    owns storage. Passing `backend=RedisStateBackend(...)` (see that module)
+    makes state survive process restarts and be shared across processes;
+    the default keeps today's exact in-memory, non-persistent behavior.
     """
 
-    def __init__(self, entity_col: str = "card1"):
+    def __init__(self, entity_col: str = "card1", backend: StateBackend | None = None):
         self.entity_col = entity_col
-        self._states: dict = {}
+        self._backend: StateBackend = backend if backend is not None else InMemoryStateBackend()
 
     def reset(self) -> None:
         """Clears all entity state — a fresh engine with no history."""
-        self._states = {}
+        self._backend.clear()
 
     def _get_or_create(self, entity_id) -> EntityState:
-        if entity_id not in self._states:
-            self._states[entity_id] = EntityState()
-        return self._states[entity_id]
+        state = self._backend.get(entity_id)
+        if state is None:
+            state = EntityState()
+            self._backend.put(entity_id, state)
+        return state
+
+    @property
+    def entity_count(self) -> int:
+        """Number of entities currently tracked — backend-agnostic
+        replacement for the old direct `len(manager._states)` access."""
+        return self._backend.count()
 
     def compute_features(self, entity_id, current_time: float, current_amount: float) -> dict:
         """
         STEP 4 of the online processing sequence: generate behavioral
         features using ONLY the entity's EXISTING state (never the current
-        transaction — this method never mutates state).
+        transaction — this method never mutates STORED state; see
+        `src/engine/state_backend.py`'s module docstring for the one
+        documented, correctness-neutral nuance this has for the Redis
+        backend specifically).
         """
-        state = self._states.get(entity_id)  # do NOT create/mutate on read
+        state = self._backend.get(entity_id)  # do NOT create on read
 
         if state is None or state.count == 0:
             prev_count = 0
@@ -233,6 +254,11 @@ class BehavioralStateManager:
         cutoff_24h = current_time - VELOCITY_WINDOWS_SECONDS["24h"]
         while state.recent_times and state.recent_times[0] < cutoff_24h:
             state.recent_times.popleft()
+        # Explicit write-back: a no-op for InMemoryStateBackend (same object
+        # already in the dict) but REQUIRED for RedisStateBackend, whose
+        # get() returns a fresh deserialized copy each time — see
+        # src/engine/state_backend.py.
+        self._backend.put(entity_id, state)
 
     def bulk_initialize(
         self, historical_df: pd.DataFrame,
@@ -288,13 +314,16 @@ class BehavioralStateManager:
             recent = times[times >= cutoff_24h]
             for t in np.sort(recent):
                 state.recent_times.append(float(t))
+            self._backend.put(entity_id, state)  # required for RedisStateBackend — see state_backend.py
 
     def get_state_snapshot(self, entity_id) -> dict | None:
-        state = self._states.get(entity_id)
+        state = self._backend.get(entity_id)
         return state.to_dict() if state is not None else None
 
     def serialize(self) -> dict:
-        return {str(k): v.to_dict() for k, v in self._states.items()}
+        return {str(k): v.to_dict() for k, v in self._backend.items()}
 
     def load_serialized(self, data: dict, key_type=int) -> None:
-        self._states = {key_type(k): EntityState.from_dict(v) for k, v in data.items()}
+        self._backend.clear()
+        for k, v in data.items():
+            self._backend.put(key_type(k), EntityState.from_dict(v))

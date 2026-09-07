@@ -69,6 +69,34 @@ else:
     st.warning("No governance registry found — run `python -m src.run_phase11_register_champion`.")
     st.stop()
 
+# ---------------------------------------------------------------------------
+# Production upgrade — MLflow cross-reference (additive, read-only).
+# MLflow tracks/discovers; the governance registry above remains the sole
+# AUTHORITATIVE source for champion/promotion status — see
+# src/mlops/mlflow_tracking.py's module docstring.
+# ---------------------------------------------------------------------------
+if gov_summary and gov_summary.get("mlflow", {}).get("run_id"):
+    mlflow_info = gov_summary["mlflow"]
+    st.markdown("### MLflow Cross-Reference (Tracking Only — Not the Authority)")
+    st.caption(
+        "MLflow tracks experiment metadata for discoverability; it does NOT "
+        "make promotion decisions — the registry above still does that. "
+        "This run represents *registering* the existing champion into "
+        "MLflow, never a new training execution."
+    )
+    m1, m2, m3 = st.columns(3)
+    m1.metric("MLflow Test PR-AUC", f"{mlflow_info['metrics'].get('test_pr_auc', 0):.4f}")
+    m2.metric("MLflow Test ROC-AUC", f"{mlflow_info['metrics'].get('test_roc_auc', 0):.4f}")
+    hash_match = mlflow_info["tags"].get("artifact_sha256") == champion.get("artifact_sha256") if champion else False
+    m3.metric("Artifact hash matches registry", "Yes" if hash_match else "Unknown")
+    with st.expander("Full MLflow run (real)"):
+        st.json(mlflow_info)
+elif api_available:
+    st.caption(
+        "No MLflow run found yet — run `python scripts/log_champion_to_mlflow.py` "
+        "to register the real champion's real metrics into MLflow."
+    )
+
 if champion:
     with st.expander("Full champion metadata (real)"):
         st.json(champion)

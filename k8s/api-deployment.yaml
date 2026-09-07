@@ -1,0 +1,70 @@
+# Deployment for the FastAPI fraud-scoring service.
+#
+# HONESTY NOTE: this manifest was authored and YAML-syntax-validated in
+# this project's development environment (python -c "import yaml;
+# yaml.safe_load_all(open('api-deployment.yaml'))", and the same for
+# every file in this directory), but was NEVER applied to a real
+# Kubernetes cluster or validated with `kubectl apply --dry-run` — no
+# Kubernetes control plane (not even a local kind/minikube) was available
+# in this sandboxed development environment. Autoscaling is NOT
+# configured here — no HorizontalPodAutoscaler is included, since none
+# was tested.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-risk-api
+  namespace: fraud-risk-engine
+  labels:
+    app: fraud-risk-api
+spec:
+  replicas: 1
+  # NOTE: replicas > 1 requires STATE_BACKEND=redis (see configmap.yaml) —
+  # with STATE_BACKEND=memory (the Docker/Phase-8 default), each replica
+  # would maintain independent, inconsistent behavioral state. This is
+  # documented in reports/production_architecture_audit.md's "state
+  # consistency concerns" section.
+  selector:
+    matchLabels:
+      app: fraud-risk-api
+  template:
+    metadata:
+      labels:
+        app: fraud-risk-api
+    spec:
+      containers:
+        - name: fraud-risk-api
+          image: fraud-risk-api:local   # replace with a real ECR/registry image URI for a real deployment — see README's AWS section
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: fraud-risk-api-config
+            - secretRef:
+                name: fraud-risk-api-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            # These numbers are conservative STARTING POINTS based on this
+            # being a single-process Python service with a ~3.6MB model
+            # bundle in memory — they are NOT derived from a real load
+            # test (no load test was run against a containerized/K8s
+            # deployment; see reports/streaming_benchmark.md). Tune based
+            # on real observed usage before relying on them.
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
